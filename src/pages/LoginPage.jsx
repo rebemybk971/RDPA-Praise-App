@@ -1,0 +1,74 @@
+import { useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
+
+export default function LoginPage() {
+  const { signIn } = useAuth()
+  const { cycleTheme, icon } = useTheme()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    const { error } = await signIn(email, password)
+    if (error) { setError('Email ou mot de passe incorrect'); setLoading(false) }
+  }
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--blanc)', maxWidth: 430, margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 20px' }}>
+        <button className="theme-btn" onClick={cycleTheme}>{icon}</button>
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 32px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div style={{ fontSize: '3rem', marginBottom: 12 }}>💎</div>
+          <h1 style={{ fontFamily: 'var(--font-title)', fontSize: '2rem', color: 'var(--texte)', marginBottom: 4 }}>
+            Louange <em style={{ color: 'var(--bleu-principal)', fontStyle: 'italic' }}>RDPA</em>
+          </h1>
+          <p style={{ color: 'var(--texte-sec)', fontSize: '0.85rem' }}>Révélation Du Premier Amour</p>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input
+              className="form-input"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="votre@email.com"
+              required
+              autoComplete="email"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Mot de passe</label>
+            <input
+              className="form-input"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+
+          {error && (
+            <p style={{ color: '#e05a2b', fontSize: '0.85rem', marginBottom: 12, textAlign: 'center' }}>{error}</p>
+          )}
+
+          <button className="btn btn-primary btn-full" type="submit" disabled={loading}>
+            {loading ? 'Connexion…' : 'Se connecter'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
