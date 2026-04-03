@@ -131,12 +131,12 @@ function InviteModal({ currentUserId, onClose, onSaved }) {
   async function genererLien() {
     setGenerating(true)
     const token = generateToken()
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    const { error } = await supabase.from('invitations').insert({
-      token,
-      role,
-      expires_at: expiresAt,
-      created_by: currentUserId,
+    cons expireLe = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+const { error } = await supabase.from('invitations').insert({
+  token,
+  role,
+  expire_le: expireLe,
+  created_by: currentUserId,
     })
     setGenerating(false)
     if (error) { alert('Erreur : ' + error.message); return }
