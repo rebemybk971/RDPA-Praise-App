@@ -107,8 +107,7 @@ export default function RepertoirePage() {
         )}
       </div>
 
-      <div className="chips" style={{ flexWrap: 'wrap', gap: 6 }}>
-        {categories.map(cat => (
+<div className="chips" style={{ flexWrap: 'nowrap', overflowX: 'auto', gap: 6, paddingBottom: 4, WebkitOverflowScrolling: 'touch' }}>        {categories.map(cat => (
           <button
             key={cat}
             className={`chip${activecat === cat ? ' active' : ''}`}
