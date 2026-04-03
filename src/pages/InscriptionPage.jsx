@@ -6,6 +6,7 @@ export default function InscriptionPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [nom, setNom] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -21,7 +22,7 @@ export default function InscriptionPage() {
         .from('invitations')
         .select('*')
         .eq('token', token)
-        .eq('utilisee', false)
+        .eq('utilise', false)
         .gt('expire_le', new Date().toISOString())
         .single()
       if (error || !data) {
@@ -29,6 +30,7 @@ export default function InscriptionPage() {
       } else {
         setInvitationValide(true)
         setInvitationData(data)
+        if (data.email) setEmail(data.email)
       }
     }
     verifierInvitation()
@@ -37,24 +39,25 @@ export default function InscriptionPage() {
   async function handleInscription(e) {
     e.preventDefault()
     if (!nom.trim()) { setError('Veuillez entrer votre nom.'); return }
+    if (!email.trim()) { setError('Veuillez entrer votre email.'); return }
     if (password.length < 6) { setError('Le mot de passe doit faire au moins 6 caractères.'); return }
     setLoading(true)
     setError('')
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: invitationData.email,
+        email: email.trim(),
         password,
       })
       if (authError) throw authError
       const { error: membreError } = await supabase.from('membres').insert({
         id: authData.user.id,
         nom: nom.trim(),
-        email: invitationData.email,
+        email: email.trim(),
         role: invitationData.role || 'lecteur',
         actif: true,
       })
       if (membreError) throw membreError
-      await supabase.from('invitations').update({ utilisee: true }).eq('token', token)
+      await supabase.from('invitations').update({ utilise: true }).eq('token', token)
       navigate('/repertoire')
     } catch (err) {
       setError(err.message || "Une erreur est survenue.")
@@ -92,8 +95,9 @@ export default function InscriptionPage() {
         ) : (
           <form onSubmit={handleInscription}>
             <p style={{ color: 'var(--texte-sec)', fontSize: '0.9rem', textAlign: 'center', marginBottom: 24 }}>
-              Invitation pour <strong>{invitationData?.email}</strong>
+              Créez votre compte pour rejoindre l'équipe
             </p>
+
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--texte-sec)', marginBottom: 6 }}>
                 Votre nom
@@ -110,6 +114,24 @@ export default function InscriptionPage() {
                 }}
               />
             </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--texte-sec)', marginBottom: 6 }}>
+                Votre email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="Ex : marie@email.com"
+                style={{
+                  width: '100%', padding: '12px 14px', borderRadius: 10,
+                  border: '1.5px solid var(--border)', background: 'var(--bg)',
+                  color: 'var(--texte)', fontSize: '1rem', boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
             <div style={{ marginBottom: 24, position: 'relative' }}>
               <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--texte-sec)', marginBottom: 6 }}>
                 Mot de passe
@@ -133,9 +155,11 @@ export default function InscriptionPage() {
                 {showPassword ? '🙈' : '👁️'}
               </button>
             </div>
+
             {error && (
               <div style={{ color: '#c00', fontSize: '0.85rem', marginBottom: 12 }}>{error}</div>
             )}
+
             <button type="submit" disabled={loading} style={{
               width: '100%', padding: '14px', borderRadius: 10,
               background: 'var(--bleu-principal)', color: '#fff',
