@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../hooks/useTheme'
+import ForgotPasswordPage from './ForgotPasswordPage'
 
 export default function LoginPage() {
   const { signIn } = useAuth()
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -18,6 +20,8 @@ export default function LoginPage() {
     const { error } = await signIn(email, password)
     if (error) { setError('Email ou mot de passe incorrect'); setLoading(false) }
   }
+
+  if (showForgot) return <ForgotPasswordPage onBack={() => setShowForgot(false)} />
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--blanc)', maxWidth: 430, margin: '0 auto' }}>
@@ -64,22 +68,16 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: 12,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '1.1rem',
-                  color: 'var(--texte-sec)',
-                  padding: 4
-                }}
-              >
+                style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--texte-sec)', padding: 4 }}>
                 {showPassword ? '🙈' : '👁️'}
               </button>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowForgot(true)}
+              style={{ marginTop: 8, background: 'none', border: 'none', color: 'var(--bleu-principal)', cursor: 'pointer', fontSize: '0.85rem', padding: 0 }}>
+              Mot de passe oublié ?
+            </button>
           </div>
 
           {error && (
