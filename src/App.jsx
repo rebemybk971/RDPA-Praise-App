@@ -10,6 +10,7 @@ import EvenementDetailPage from './pages/EvenementDetailPage'
 import VueJourJPage from './pages/VueJourJPage'
 import HistoriquePage from './pages/HistoriquePage'
 import MembresPage from './pages/MembresPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -22,9 +23,9 @@ export default function App() {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading">Chargement…</div>
   if (!user) return <LoginPage />
-
   return (
     <Routes>
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/repertoire" replace />} />
         <Route path="/repertoire" element={<RepertoirePage />} />
