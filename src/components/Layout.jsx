@@ -1,7 +1,6 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom'
 import { useTheme } from '../hooks/useTheme'
 import { useAuth } from '../hooks/useAuth'
-
 const NAV = [
   { to: '/repertoire', label: 'Répertoire', icon: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -26,7 +25,6 @@ const NAV = [
     </svg>
   )},
 ]
-
 function pageTitle(pathname) {
   if (pathname.includes('/repertoire')) return <><em>RDPA</em> Répertoire</>
   if (pathname.includes('/evenements')) return <><em>RDPA</em> Événements</>
@@ -34,27 +32,35 @@ function pageTitle(pathname) {
   if (pathname.includes('/membres'))    return <><em>RDPA</em> Membres</>
   return <><em>RDPA</em> Louange</>
 }
-
 export default function Layout() {
   const { cycleTheme, icon } = useTheme()
   const { signOut } = useAuth()
   const location = useLocation()
-
   const isJourJ = location.pathname.includes('/jour-j')
-
+  async function handleSignOut() {
+    await signOut()
+  }
   return (
     <>
       {!isJourJ && (
         <header className="app-header">
           <h1>{pageTitle(location.pathname)}</h1>
-          <button className="theme-btn" onClick={cycleTheme} title="Changer de mode">{icon}</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button className="theme-btn" onClick={cycleTheme} title="Changer de mode">{icon}</button>
+            <button
+              className="theme-btn"
+              onClick={handleSignOut}
+              title="Se déconnecter"
+              style={{ fontSize: '18px' }}
+            >
+              🚪
+            </button>
+          </div>
         </header>
       )}
-
       <main className="page-content">
         <Outlet />
       </main>
-
       {!isJourJ && (
         <nav className="bottom-nav">
           {NAV.map(({ to, label, icon }) => (
