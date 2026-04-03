@@ -25,9 +25,16 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function fetchProfile(userId) {
-    const { data } = await supabase.from('membres').select('*').eq('id', userId).single()
-    setProfile(data)
-    setLoading(false)
+    console.log('fetchProfile appelé avec userId:', userId)
+  const { data, error } = await supabase
+    .from('membres')
+    .select('*')
+    .eq('id', userId)
+    .single()
+  console.log('Résultat Supabase — data:', data)
+  console.log('Résultat Supabase — error:', error)
+  setProfile(data)
+  setLoading(false)
   }
 
   async function signIn(email, password) {
