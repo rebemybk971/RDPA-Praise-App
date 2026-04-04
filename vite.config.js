@@ -7,6 +7,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        navigateFallback: null,
+        navigateFallbackDenylist: [/.*/]
+      },
       manifest: {
         name: 'Louange RDPA',
         short_name: 'RDPA',
