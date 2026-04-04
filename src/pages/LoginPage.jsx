@@ -66,8 +66,8 @@ export default function InscriptionPage() {
   }
 
   async function retourConnexion() {
-    window.location.href = '/login'
-  }
+  window.location.replace('https://rdpa-praises-app.vercel.app/login')
+}
 
   const ROLES = { admin: 'Admin', editeur: 'Éditeur', lecteur: 'Lecteur' }
 
