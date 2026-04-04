@@ -28,6 +28,7 @@ export default function AddSongPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [catMap, setCatMap] = useState(DEFAULT_CATS)
   const [showNewCat, setShowNewCat] = useState(false)
   const [newCatName, setNewCatName] = useState('')
@@ -41,6 +42,22 @@ export default function AddSongPage() {
   })
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  async function handleImportFile(file) {
+  if (!file) return
+  setImporting(true)
+  try {
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const text = e.target.result
+      set('paroles', text)
+      setImporting(false)
+    }
+    reader.readAsText(file)
+  } catch (err) {
+    setImporting(false)
+    alert('Erreur lors de la lecture du fichier.')
+  }
+}
 
   useEffect(() => {
     fetchCategories()
@@ -251,6 +268,49 @@ export default function AddSongPage() {
       {/* Step 2: Paroles */}
       {step === 2 && (
         <>
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--texte-sec)', marginBottom: 10 }}>
+              Saisissez les paroles manuellement ou importez depuis un fichier.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--card)', border: '1.5px dashed var(--bleu-principal)',
+                borderRadius: 10, padding: '8px 14px', cursor: 'pointer',
+                fontSize: '0.82rem', color: 'var(--bleu-principal)', fontWeight: 600,
+              }}>
+                📄 PDF
+                <input type="file" accept=".pdf" style={{ display: 'none' }}
+                  onChange={e => handleImportFile(e.target.files[0])} />
+              </label>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--card)', border: '1.5px dashed var(--bleu-principal)',
+                borderRadius: 10, padding: '8px 14px', cursor: 'pointer',
+                fontSize: '0.82rem', color: 'var(--bleu-principal)', fontWeight: 600,
+              }}>
+                📝 Word
+                <input type="file" accept=".docx,.doc" style={{ display: 'none' }}
+                  onChange={e => handleImportFile(e.target.files[0])} />
+              </label>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--card)', border: '1.5px dashed var(--bleu-principal)',
+                borderRadius: 10, padding: '8px 14px', cursor: 'pointer',
+                fontSize: '0.82rem', color: 'var(--bleu-principal)', fontWeight: 600,
+              }}>
+                🖼️ Image
+                <input type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={e => handleImportFile(e.target.files[0])} />
+              </label>
+            </div>
+            {importing && (
+              <p style={{ fontSize: '0.8rem', color: 'var(--bleu-principal)', marginTop: 8 }}>
+                ⏳ Analyse en cours…
+              </p>
+            )}
+          </div>
+
           <div className="form-group">
             <label className="form-label">Paroles</label>
             <textarea className="form-input" value={form.paroles} onChange={e => set('paroles', e.target.value)}
