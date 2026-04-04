@@ -16,7 +16,7 @@ export default function InscriptionPage() {
   const token = searchParams.get('token')
 
   useEffect(() => {
-    if (!token) { setError("Lien d'invitation invalide."); return }
+    if (!token) { navigate('/login'); return }
     async function verifierInvitation() {
       const { data, error } = await supabase
         .from('invitations')
