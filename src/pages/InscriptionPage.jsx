@@ -85,12 +85,26 @@ export default function InscriptionPage() {
         }}>
           Rejoindre RDPA
         </h2>
+
         {error ? (
-          <div style={{
-            background: '#fee', color: '#c00', borderRadius: 8,
-            padding: '12px 16px', textAlign: 'center', marginTop: 16
-          }}>
-            {error}
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <div style={{
+              background: '#fee', color: '#c00', borderRadius: 8,
+              padding: '12px 16px', marginBottom: 16
+            }}>
+              {error}
+            </div>
+            <button
+              onClick={() => window.location.href = '/'}
+              style={{
+                background: 'var(--bleu-principal)', color: '#fff',
+                border: 'none', borderRadius: 8,
+                padding: '12px 24px', fontSize: '1rem',
+                cursor: 'pointer', width: '100%'
+              }}
+            >
+              Retour à la connexion
+            </button>
           </div>
         ) : (
           <form onSubmit={handleInscription}>
