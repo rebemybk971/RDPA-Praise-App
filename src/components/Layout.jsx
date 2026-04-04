@@ -39,6 +39,7 @@ export default function Layout() {
   const isJourJ = location.pathname.includes('/jour-j')
   async function handleSignOut() {
     await signOut()
+    window.location.href = '/login'
   }
   return (
     <>
