@@ -89,7 +89,7 @@ export default function InscriptionPage() {
             <div style={{ fontSize: '2rem', marginBottom: 12 }}>⚠️</div>
             <p style={{ color: 'var(--texte)', fontWeight: 500, marginBottom: 8 }}>Lien invalide</p>
             <p style={{ fontSize: '0.85rem', color: 'var(--texte-sec)', marginBottom: 20 }}>{erreur}</p>
-            <button onClick={() => navigate('/login')} className="btn btn-primary" style={{ width: '100%' }}>
+            <button onClick={() => window.location.href = '/'} className="btn btn-primary" style={{ width: '100%' }}>
               Retour à la connexion
             </button>
           </div>
@@ -155,7 +155,7 @@ export default function InscriptionPage() {
             <p style={{ fontSize: '0.85rem', color: 'var(--texte-sec)', marginBottom: 24 }}>
               Ton compte a été créé. Tu peux maintenant te connecter à l'app.
             </p>
-            <button onClick={() => navigate('/login')} className="btn btn-primary" style={{ width: '100%' }}>
+            <button onClick={() => window.location.href = '/'} className="btn btn-primary" style={{ width: '100%' }}>
               Se connecter
             </button>
           </div>
