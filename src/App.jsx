@@ -29,7 +29,8 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/inscription" element={<InscriptionPage />} />
       {!user ? (
-        <Route path="*" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       ) : (
         <Route element={<Layout />}>
           <Route index element={<Navigate to="/repertoire" replace />} />
