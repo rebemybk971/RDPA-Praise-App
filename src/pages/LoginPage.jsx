@@ -66,7 +66,6 @@ export default function InscriptionPage() {
   }
 
   async function retourConnexion() {
-    await supabase.auth.signOut()
     window.location.href = '/login'
   }
 
