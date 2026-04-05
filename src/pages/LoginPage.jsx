@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export default function InscriptionPage() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const token = searchParams.get('token')
+  const dejaVerifie = useRef(false)
 
-  const [step, setStep] = useState('verification') // verification | formulaire | succes | erreur
+  const [step, setStep] = useState('verification')
   const [invitation, setInvitation] = useState(null)
   const [nom, setNom] = useState('')
   const [email, setEmail] = useState('')
@@ -15,7 +17,11 @@ export default function InscriptionPage() {
   const [saving, setSaving] = useState(false)
   const [erreur, setErreur] = useState('')
 
-  useEffect(() => { verifierToken() }, [])
+  useEffect(() => {
+    if (dejaVerifie.current) return
+    dejaVerifie.current = true
+    verifierToken()
+  }, [])
 
   async function verifierToken() {
     if (!token) { setStep('erreur'); setErreur('Lien invalide.'); return }
@@ -65,9 +71,10 @@ export default function InscriptionPage() {
     setStep('succes')
   }
 
-  async function retourConnexion() {
-  window.location.replace('https://rdpa-praises-app.vercel.app/login')
-}
+  function retourConnexion() {
+    console.log('CLIC RETOUR CONNEXION')
+    navigate('/login')
+  }
 
   const ROLES = { admin: 'Admin', editeur: 'Éditeur', lecteur: 'Lecteur' }
 
