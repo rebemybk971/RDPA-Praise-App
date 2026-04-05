@@ -6,8 +6,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: false,
+      registerType: 'manual',
+      injectRegister: null,
+      selfDestroying: true,
       workbox: {
         navigateFallback: null,
         navigateFallbackDenylist: [/.*/],
