@@ -95,7 +95,7 @@ export default function InscriptionPage() {
               {error}
             </div>
             <button
-              onClick={() => window.location.href = '/'}
+              onClick={() => navigate('/login')}
               style={{
                 background: 'var(--bleu-principal)', color: '#fff',
                 border: 'none', borderRadius: 8,
