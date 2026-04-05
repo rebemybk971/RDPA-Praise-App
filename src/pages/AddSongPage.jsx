@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import * as pdfjsLib from 'pdfjs-dist'
+
+// Nécessaire pour que PDF.js fonctionne dans le navigateur
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`
 
 const DEFAULT_CATS = {
   Adoration: { bg: '#E0F4FC', tx: '#1A7BAF' },
@@ -42,22 +46,81 @@ export default function AddSongPage() {
   })
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  async function handleImportFile(file) {
-  if (!file) return
-  setImporting(true)
-  try {
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const text = e.target.result
-      set('paroles', text)
-      setImporting(false)
+
+  // ── Lecture PDF avec PDF.js ──────────────────────────────────────────────
+  async function lirePDF(file) {
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    let texte = ''
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const contenu = await page.getTextContent()
+      // Reconstituer les lignes : on regroupe les items par position Y
+      let ligneY = null
+      let ligneCourante = []
+      const lignes = []
+      contenu.items.forEach(item => {
+        const y = Math.round(item.transform[5])
+        if (ligneY === null) ligneY = y
+        if (Math.abs(y - ligneY) > 3) {
+          lignes.push(ligneCourante.join(' '))
+          ligneCourante = []
+          ligneY = y
+        }
+        if (item.str.trim()) ligneCourante.push(item.str)
+      })
+      if (ligneCourante.length) lignes.push(ligneCourante.join(' '))
+      texte += lignes.join('\n') + '\n\n'
     }
-    reader.readAsText(file)
-  } catch (err) {
-    setImporting(false)
-    alert('Erreur lors de la lecture du fichier.')
+    return texte
   }
-}
+
+  // ── Lecture Word (.docx) avec mammoth ────────────────────────────────────
+  async function lireWord(file) {
+    const { default: mammoth } = await import('mammoth')
+    const arrayBuffer = await file.arrayBuffer()
+    const result = await mammoth.extractRawText({ arrayBuffer })
+    return result.value
+  }
+
+  // ── Nettoyage du texte extrait ───────────────────────────────────────────
+  function nettoyerTexte(texte) {
+    return texte
+      .replace(/\u0000/g, '')                         // caractères nuls
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // caractères de contrôle
+      .replace(/\n{3,}/g, '\n\n')                     // triple saut → double
+      .trim()
+  }
+
+  // ── Gestionnaire principal d'import ─────────────────────────────────────
+  async function handleImportFile(file) {
+    if (!file) return
+    setImporting(true)
+    try {
+      let texte = ''
+      const ext = file.name.split('.').pop().toLowerCase()
+
+      if (ext === 'pdf') {
+        texte = await lirePDF(file)
+      } else if (ext === 'docx' || ext === 'doc') {
+        texte = await lireWord(file)
+      } else if (file.type.startsWith('image/')) {
+        // Pour les images : message explicatif (OCR non disponible sans service externe)
+        alert("Pour les images, copiez le texte manuellement ou utilisez l'appareil photo de votre téléphone avec Google Lens.")
+        setImporting(false)
+        return
+      } else {
+        // Texte brut en dernier recours
+        texte = await file.text()
+      }
+
+      set('paroles', nettoyerTexte(texte))
+    } catch (err) {
+      console.error('Erreur import fichier:', err)
+      alert('Impossible de lire ce fichier. Essayez de copier-coller le texte directement.')
+    }
+    setImporting(false)
+  }
 
   useEffect(() => {
     fetchCategories()
@@ -92,7 +155,12 @@ export default function AddSongPage() {
 
   async function save() {
     setSaving(true)
-    const { data, error } = await supabase.from('chants').insert([form]).select().single()
+    // BUG 5 : BPM vide → valeur par défaut 80
+    const formAEnvoyer = {
+      ...form,
+      bpm: form.bpm === '' || form.bpm === null ? 80 : Number(form.bpm),
+    }
+    const { data, error } = await supabase.from('chants').insert([formAEnvoyer]).select().single()
     setSaving(false)
     if (!error) navigate(`/repertoire/${data.id}`)
     else alert('Erreur lors de l\'enregistrement : ' + error.message)
@@ -107,7 +175,7 @@ export default function AddSongPage() {
           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--texte-sec)', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-ui)', fontSize: '0.85rem', marginBottom: 12 }}>
           ← {step === 1 ? 'Annuler' : 'Retour'}
         </button>
-        <h2 style={{ fontFamily: 'var(--font-title)', fontSize: '1.4rem', fontWeight: 600 }}>Ajouter un chant</h2>
+        <h2 style={{ fontFamily: 'var(--font-ui)', fontSize: '1.4rem', fontWeight: 600 }}>Ajouter un chant</h2>
 
         {/* Progress */}
         <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
@@ -250,7 +318,7 @@ export default function AddSongPage() {
             </div>
             <div className="form-group">
               <label className="form-label">BPM</label>
-              <input className="form-input" type="number" value={form.bpm} onChange={e => set('bpm', e.target.value)} placeholder="120" />
+              <input className="form-input" type="number" value={form.bpm} onChange={e => set('bpm', e.target.value)} placeholder="80" />
             </div>
           </div>
 
@@ -306,15 +374,25 @@ export default function AddSongPage() {
             </div>
             {importing && (
               <p style={{ fontSize: '0.8rem', color: 'var(--bleu-principal)', marginTop: 8 }}>
-                ⏳ Analyse en cours…
+                ⏳ Lecture du fichier en cours…
               </p>
             )}
           </div>
 
           <div className="form-group">
             <label className="form-label">Paroles</label>
-            <textarea className="form-input" value={form.paroles} onChange={e => set('paroles', e.target.value)}
-              placeholder="Saisissez les paroles ici…&#10;&#10;Utilisez des lignes vides pour séparer les couplets et refrains." style={{ minHeight: 200 }} />
+            <textarea
+              className="form-input"
+              value={form.paroles}
+              onChange={e => set('paroles', e.target.value)}
+              placeholder={"Saisissez les paroles ici…\n\nUtilisez des lignes vides pour séparer les couplets et refrains."}
+              style={{
+                minHeight: 200,
+                fontFamily: 'DM Sans, system-ui, sans-serif',  /* ← police sans empattements */
+                fontSize: '1rem',
+                lineHeight: '1.8',
+              }}
+            />
           </div>
 
           <div className="form-group">
