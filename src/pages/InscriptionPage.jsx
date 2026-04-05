@@ -95,7 +95,10 @@ export default function InscriptionPage() {
               {error}
             </div>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => {
+                console.log('CLIC BOUTON RETOUR')
+                navigate('/login')
+              }}
               style={{
                 background: 'var(--bleu-principal)', color: '#fff',
                 border: 'none', borderRadius: 8,
