@@ -10,17 +10,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
+          set +e
           echo "Ping Supabase pour eviter la mise en pause..."
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/chants?select=id&limit=1")
+          echo "Longueur URL : ${#SUPABASE_URL} caracteres"
+          echo "Longueur cle : ${#SUPABASE_KEY} caracteres"
+          
+          RESPONSE=$(curl -s -o /tmp/curl_output.txt -w "%{http_code}" \
+            --max-time 30 \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY" \
+            "$SUPABASE_URL/rest/v1/chants?select=id&limit=1")
+          CURL_EXIT=$?
+          
+          echo "Code de sortie curl : $CURL_EXIT"
           echo "Code HTTP recu : $RESPONSE"
+          echo "Reponse Supabase :"
+          cat /tmp/curl_output.txt || echo "(reponse vide)"
+          echo ""
+          
           if [ "$RESPONSE" = "200" ]; then
             echo "Ping reussi - Supabase repond correctement"
             exit 0
           else
-            echo "Ping echoue - Code HTTP : $RESPONSE"
+            echo "Ping echoue - Code HTTP : $RESPONSE / Code curl : $CURL_EXIT"
             exit 1
           fi
