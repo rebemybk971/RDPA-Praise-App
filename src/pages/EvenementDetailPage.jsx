@@ -29,20 +29,42 @@ export default function EvenementDetailPage() {
   useEffect(() => { fetchAll() }, [id])
 
   async function fetchAll() {
-    const [{ data: ev }, { data: sl }] = await Promise.all([
-      supabase.from('evenements').select('*').eq('id', id).single(),
-      supabase.from('evenement_chants').select('*, chants(*)').eq('evenement_id', id).order('ordre'),
-    ])
-    setEvent(ev)
-    setSetlist(sl || [])
-    setLoading(false)
+    try {
+      const [evRes, slRes] = await Promise.all([
+        supabase.from('evenements').select('*').eq('id', id).single(),
+        supabase.from('evenement_chants').select('*, chants(*)').eq('evenement_id', id).order('ordre'),
+      ])
+
+      if (evRes.error) {
+        console.error('[fetchAll] Erreur evenements :', evRes.error)
+        toast(`⚠️ Erreur événement : ${evRes.error.message}`)
+      }
+      if (slRes.error) {
+        console.error('[fetchAll] Erreur evenement_chants :', slRes.error)
+        toast(`⚠️ Erreur setlist : ${slRes.error.message}`)
+      }
+
+      setEvent(evRes.data)
+      setSetlist(slRes.data || [])
+    } catch (err) {
+      console.error('[fetchAll] Exception :', err)
+      toast(`⚠️ Erreur : ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  function toast(msg) { setToastMsg(msg); setTimeout(() => setToastMsg(''), 2500) }
+  function toast(msg) { setToastMsg(msg); setTimeout(() => setToastMsg(''), 4000) }
 
   async function removeSong(ecId) {
-    await supabase.from('evenement_chants').delete().eq('id', ecId)
+    const { error } = await supabase.from('evenement_chants').delete().eq('id', ecId)
+    if (error) {
+      console.error('[removeSong] Erreur :', error)
+      toast(`⚠️ Suppression échouée : ${error.message}`)
+      return
+    }
     setSetlist(s => s.filter(x => x.id !== ecId))
+    toast('Chant retiré ✓')
   }
 
   function shareWhatsApp() {
@@ -136,7 +158,8 @@ export default function EvenementDetailPage() {
           eventId={id}
           existingIds={setlist.map(s => s.chant_id)}
           onClose={() => setShowAddSong(false)}
-          onSaved={() => { setShowAddSong(false); fetchAll() }}
+          onSaved={() => { setShowAddSong(false); fetchAll(); toast('Chant ajouté ✓') }}
+          onError={(msg) => toast(`⚠️ ${msg}`)}
           nextOrdre={setlist.length + 1}
         />
       )}
@@ -161,20 +184,32 @@ export default function EvenementDetailPage() {
   )
 }
 
-function AddSongModal({ eventId, existingIds, onClose, onSaved, nextOrdre }) {
+function AddSongModal({ eventId, existingIds, onClose, onSaved, onError, nextOrdre }) {
   const [songs, setSongs] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('chants').select('id, titre, categorie, tonalite').order('titre').then(({ data }) => {
+    supabase.from('chants').select('id, titre, categorie, tonalite').order('titre').then(({ data, error }) => {
+      if (error) {
+        console.error('[AddSongModal] Erreur chargement chants :', error)
+        if (onError) onError(`Chargement chants : ${error.message}`)
+      }
       setSongs(data || [])
       setLoading(false)
     })
   }, [])
 
   async function addSong(song) {
-    await supabase.from('evenement_chants').insert([{ evenement_id: eventId, chant_id: song.id, ordre: nextOrdre, tonalite_jour: song.tonalite }])
+    const { error } = await supabase
+      .from('evenement_chants')
+      .insert([{ evenement_id: eventId, chant_id: song.id, ordre: nextOrdre, tonalite_jour: song.tonalite }])
+
+    if (error) {
+      console.error('[addSong] Erreur Supabase :', error)
+      if (onError) onError(`Ajout impossible : ${error.message}`)
+      return
+    }
     onSaved()
   }
 
