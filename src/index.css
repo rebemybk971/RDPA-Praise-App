@@ -1,4 +1,6 @@
 /* ── RDPA Design Tokens ─────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
 :root {
   --bleu-principal: #4BBFE8;
   --bleu-ciel: #A8DDF2;
@@ -20,8 +22,8 @@
   --cat-victoire-bg:  #EAF4FA; --cat-victoire-tx:  #1A5E8A;
   --cat-parvis-bg:    #FDF5E6; --cat-parvis-tx:    #7A5A1A;
 
-  --font-title: 'Cormorant Garamond', serif;
-  --font-ui: 'DM Sans', sans-serif;
+  --font-title: 'Lora', Georgia, serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'DM Mono', monospace;
 
   --radius: 16px;
@@ -39,8 +41,8 @@
     --surface: #132030;
     --card: #192840;
     --texte: #E4F3FA;
-    --texte-sec: rgba(228,243,250,0.55);
-    --texte-ter: rgba(228,243,250,0.35);
+    --texte-sec: rgba(228,243,250,0.78);
+    --texte-ter: rgba(228,243,250,0.55);
     --border: rgba(75,191,232,0.15);
     --nav-bg: #0D1820;
     --header-bg: #0D1820;
@@ -60,8 +62,8 @@
   --surface: #132030;
   --card: #192840;
   --texte: #E4F3FA;
-  --texte-sec: rgba(228,243,250,0.55);
-  --texte-ter: rgba(228,243,250,0.35);
+  --texte-sec: rgba(228,243,250,0.78);
+  --texte-ter: rgba(228,243,250,0.55);
   --border: rgba(75,191,232,0.15);
   --nav-bg: #0D1820;
   --header-bg: #0D1820;
@@ -80,9 +82,11 @@
 html, body {
   height: 100%;
   font-family: var(--font-ui);
+  font-size: 17px;
   background: var(--blanc);
   color: var(--texte);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
 }
 
@@ -108,7 +112,7 @@ html, body {
 
 .app-header h1 {
   font-family: var(--font-title);
-  font-size: 1.5rem;
+  font-size: 1.7rem;
   font-weight: 600;
   color: var(--texte);
 }
@@ -121,7 +125,7 @@ html, body {
 .theme-btn {
   background: none;
   border: none;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 8px;
@@ -149,20 +153,20 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   padding: 6px 4px;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--texte-ter);
   font-family: var(--font-ui);
-  font-size: 0.65rem;
-  font-weight: 300;
+  font-size: 0.78rem;
+  font-weight: 500;
   transition: color 0.2s;
   text-decoration: none;
 }
-.nav-item.active { color: var(--bleu-principal); }
-.nav-item svg { width: 22px; height: 22px; }
+.nav-item.active { color: var(--bleu-principal); font-weight: 600; }
+.nav-item svg { width: 24px; height: 24px; }
 
 /* ── Cards ──────────────────────────────────────────── */
 .card {
@@ -182,7 +186,7 @@ html, body {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   margin-bottom: 16px;
 }
 .search-bar input {
@@ -191,7 +195,7 @@ html, body {
   border: none;
   outline: none;
   font-family: var(--font-ui);
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: var(--texte);
 }
 .search-bar input::placeholder { color: var(--texte-ter); }
@@ -210,17 +214,17 @@ html, body {
 
 .chip {
   flex-shrink: 0;
-  padding: 5px 14px;
+  padding: 7px 16px;
   border-radius: 20px;
-  font-size: 0.78rem;
-  font-weight: 400;
+  font-size: 0.9rem;
+  font-weight: 500;
   border: none;
   cursor: pointer;
   font-family: var(--font-ui);
   transition: opacity 0.2s;
 }
-.chip.active { font-weight: 500; }
-.chip:not(.active) { opacity: 0.5; }
+.chip.active { font-weight: 600; }
+.chip:not(.active) { opacity: 0.55; }
 
 /* ── Song row ───────────────────────────────────────── */
 .song-row {
@@ -242,7 +246,7 @@ html, body {
 .song-row-info { flex: 1; min-width: 0; }
 .song-row-title {
   font-family: var(--font-title);
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--texte);
   white-space: nowrap;
@@ -250,17 +254,18 @@ html, body {
   text-overflow: ellipsis;
 }
 .song-row-meta {
-  font-size: 0.75rem;
+  font-size: 0.88rem;
   color: var(--texte-sec);
-  margin-top: 2px;
+  margin-top: 3px;
+  font-weight: 400;
 }
 
 .cat-badge {
-  font-size: 0.7rem;
-  padding: 3px 10px;
+  font-size: 0.8rem;
+  padding: 4px 11px;
   border-radius: 12px;
   flex-shrink: 0;
-  font-weight: 400;
+  font-weight: 500;
 }
 
 /* ── Buttons ─────────────────────────────────────────── */
@@ -268,12 +273,12 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 12px 20px;
+  padding: 13px 22px;
   border-radius: 12px;
   border: none;
   cursor: pointer;
   font-family: var(--font-ui);
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 500;
   transition: opacity 0.2s, box-shadow 0.2s;
 }
@@ -291,14 +296,14 @@ html, body {
   position: fixed;
   bottom: calc(72px + env(safe-area-inset-bottom));
   right: 20px;
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--bleu-principal);
   color: #fff;
   border: none;
   cursor: pointer;
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -310,12 +315,13 @@ html, body {
 
 /* ── Badge nouveau ───────────────────────────────────── */
 .badge-new {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   background: var(--bleu-principal);
   color: #fff;
-  padding: 2px 7px;
+  padding: 3px 9px;
   border-radius: 8px;
   margin-left: 6px;
+  font-weight: 500;
 }
 
 /* ── Empty state ─────────────────────────────────────── */
@@ -324,15 +330,15 @@ html, body {
   padding: 48px 24px;
   color: var(--texte-sec);
 }
-.empty-state .emoji { font-size: 2.5rem; margin-bottom: 12px; }
-.empty-state p { font-size: 0.9rem; line-height: 1.6; }
+.empty-state .emoji { font-size: 2.8rem; margin-bottom: 14px; }
+.empty-state p { font-size: 1rem; line-height: 1.6; }
 
 /* ── Form ────────────────────────────────────────────── */
 .form-group { margin-bottom: 16px; }
 .form-label {
   display: block;
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--texte-sec);
   margin-bottom: 6px;
   text-transform: uppercase;
@@ -340,12 +346,12 @@ html, body {
 }
 .form-input {
   width: 100%;
-  padding: 12px 14px;
+  padding: 13px 14px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
   font-family: var(--font-ui);
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: var(--texte);
   outline: none;
   transition: border-color 0.2s;
@@ -362,9 +368,10 @@ textarea.form-input { resize: vertical; min-height: 100px; }
   transform: translateX(-50%);
   background: var(--texte);
   color: var(--blanc);
-  padding: 10px 20px;
+  padding: 11px 22px;
   border-radius: 20px;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 500;
   z-index: 1000;
   animation: fadeInUp 0.3s ease;
 }
@@ -380,5 +387,5 @@ textarea.form-input { resize: vertical; min-height: 100px; }
   justify-content: center;
   height: 100%;
   color: var(--texte-sec);
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
