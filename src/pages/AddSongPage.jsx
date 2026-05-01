@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import * as pdfjsLib from 'pdfjs-dist'
 
@@ -11,13 +11,39 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 const TONALITES = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si']
 const PUPITRES = ['soprano', 'alto', 'tenor', 'basse', 'clavier', 'guitare', 'batterie']
 
+const NOMS_BLOCS = [
+  'Couplet 1', 'Couplet 2', 'Couplet 3', 'Couplet 4',
+  'Pré-refrain',
+  'Refrain', 'Refrain 1', 'Refrain 2', 'Refrain 3', 'Refrain 4',
+  'Pont', 'Intro', 'Outro', 'Verset', 'Chorus', 'Bridge'
+]
+
+// Reconstruit la liste des blocs à partir du texte stocké en base ([Couplet 1]\n...\n\n[Refrain]\n...)
+function parseParoles(texte) {
+  if (!texte || !texte.trim()) return [{ nom: 'Couplet 1', contenu: '' }]
+  const regex = /\[([^\]]+)\]\n?([\s\S]*?)(?=\n\[|$)/g
+  const blocs = []
+  let match
+  while ((match = regex.exec(texte)) !== null) {
+    blocs.push({ nom: match[1].trim(), contenu: match[2].trim() })
+  }
+  if (blocs.length === 0) {
+    return [{ nom: 'Paroles', contenu: texte.trim() }]
+  }
+  return blocs
+}
+
 export default function AddSongPage() {
   const navigate = useNavigate()
+  const { id } = useParams()
+  const modeEdition = Boolean(id)
+
   const [etape, setEtape] = useState(1)
   const [categories, setCategories] = useState([])
   const [nouvelleCategorie, setNouvelleCategorie] = useState('')
   const [ajouterCategorie, setAjouterCategorie] = useState(false)
   const [importEnCours, setImportEnCours] = useState(false)
+  const [chargementChant, setChargementChant] = useState(modeEdition)
 
   const [infos, setInfos] = useState({
     titre: '',
@@ -41,11 +67,53 @@ export default function AddSongPage() {
 
   useEffect(() => {
     chargerCategories()
-  }, [])
+    if (modeEdition) {
+      chargerChantExistant()
+    }
+  }, [id])
 
   async function chargerCategories() {
     const { data } = await supabase.from('categories').select('*').order('nom')
     if (data) setCategories(data)
+  }
+
+  async function chargerChantExistant() {
+    try {
+      const { data, error } = await supabase.from('chants').select('*').eq('id', id).single()
+      if (error) {
+        console.error('[AddSongPage] Erreur chargement chant :', error)
+        setErreur('Impossible de charger ce chant : ' + error.message)
+        setChargementChant(false)
+        return
+      }
+      if (!data) {
+        setErreur('Chant introuvable.')
+        setChargementChant(false)
+        return
+      }
+      setInfos({
+        titre: data.titre || '',
+        auteur: data.auteur || '',
+        categorie: data.categorie || '',
+        tonalite: data.tonalite || 'Do',
+        bpm: data.bpm || 80,
+      })
+      setParoles(parseParoles(data.paroles))
+      setPupitres({
+        soprano: data.pupitre_soprano || '',
+        alto: data.pupitre_alto || '',
+        tenor: data.pupitre_tenor || '',
+        basse: data.pupitre_basse || '',
+        clavier: data.pupitre_clavier || '',
+        guitare: data.pupitre_guitare || '',
+        batterie: data.pupitre_batterie || '',
+      })
+      setChargementChant(false)
+    } catch (err) {
+      console.error('[AddSongPage] Exception chargement chant :', err)
+      setErreur('Erreur inattendue : ' + err.message)
+      setChargementChant(false)
+    }
   }
 
   async function ajouterNouvelleCategorie() {
@@ -60,9 +128,7 @@ export default function AddSongPage() {
   }
 
   function ajouterBloc() {
-    const noms = ['Couplet', 'Refrain', 'Pont', 'Intro', 'Outro', 'Verset', 'Chorus', 'Bridge']
-    const nomAuto = noms[paroles.length % noms.length] + (paroles.length >= noms.length ? ' ' + Math.floor(paroles.length / noms.length + 1) : ' ' + (paroles.filter(p => p.nom.startsWith(noms[paroles.length % noms.length])).length + 1))
-    setParoles(prev => [...prev, { nom: nomAuto, contenu: '' }])
+    setParoles(prev => [...prev, { nom: 'Couplet ' + (prev.length + 1), contenu: '' }])
   }
 
   function supprimerBloc(index) {
@@ -73,7 +139,6 @@ export default function AddSongPage() {
     setParoles(prev => prev.map((b, i) => i === index ? { ...b, [champ]: valeur } : b))
   }
 
-  // ✅ CORRECTION BUG 4 — Import PDF : extraction texte lisible uniquement
   async function importerFichier(e) {
     const fichier = e.target.files[0]
     if (!fichier) return
@@ -97,7 +162,6 @@ export default function AddSongPage() {
           if (textePage) texteComplet += textePage + '\n\n'
         }
 
-        // Nettoyage des caractères spéciaux problématiques pour Supabase
         texteComplet = texteComplet
           .replace(/[^\x20-\x7E\xA0-\xFF\u00C0-\u024F\u2018\u2019\u201C\u201D\n\r]/g, '')
           .replace(/\s+\n/g, '\n')
@@ -124,7 +188,6 @@ export default function AddSongPage() {
     setImportEnCours(false)
   }
 
-  // ✅ CORRECTION BUG 5 — BPM vide : valeur par défaut 80, jamais de chaîne vide
   async function sauvegarder() {
     if (!infos.titre.trim()) {
       setErreur('Le titre est obligatoire.')
@@ -151,14 +214,27 @@ export default function AddSongPage() {
       )
     }
 
-    const { error } = await supabase.from('chants').insert(donnees)
+    let error
+    if (modeEdition) {
+      const res = await supabase.from('chants').update(donnees).eq('id', id)
+      error = res.error
+    } else {
+      const res = await supabase.from('chants').insert(donnees)
+      error = res.error
+    }
 
     if (error) {
       console.error('Erreur sauvegarde:', error)
       setErreur('Erreur lors de la sauvegarde : ' + error.message)
     } else {
       setSauvegarde(true)
-      setTimeout(() => navigate('/repertoire'), 1500)
+      setTimeout(() => {
+        if (modeEdition) {
+          navigate(`/repertoire/${id}`)
+        } else {
+          navigate('/repertoire')
+        }
+      }, 1500)
     }
   }
 
@@ -187,21 +263,31 @@ export default function AddSongPage() {
     bpmRow: { display: 'flex', alignItems: 'center', gap: '12px' },
   }
 
+  if (chargementChant) {
+    return (
+      <div style={styles.page}>
+        <div className="loading">Chargement du chant…</div>
+      </div>
+    )
+  }
+
   if (sauvegarde) {
     return (
       <div style={styles.page}>
-        <div style={styles.succes}>✅ Chant enregistré avec succès ! Retour au répertoire...</div>
+        <div style={styles.succes}>
+          ✅ {modeEdition ? 'Chant modifié avec succès !' : 'Chant enregistré avec succès !'} Redirection…
+        </div>
       </div>
     )
   }
 
   return (
     <div style={styles.page}>
-      <h1 style={styles.titre}>Ajouter un chant</h1>
+      <h1 style={styles.titre}>{modeEdition ? 'Modifier le chant' : 'Ajouter un chant'}</h1>
 
       <div style={styles.etapes}>
         {[1,2,3].map(n => (
-          <button key={n} style={styles.etapeBouton(n)} onClick={() => n < etape && setEtape(n)}>
+          <button key={n} style={styles.etapeBouton(n)} onClick={() => setEtape(n)}>
             {n === 1 ? '1 · Infos' : n === 2 ? '2 · Paroles' : '3 · Pupitres'}
           </button>
         ))}
@@ -276,9 +362,12 @@ export default function AddSongPage() {
               <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                 <select value={bloc.nom} onChange={e => modifierBloc(i, 'nom', e.target.value)}
                   style={{ ...styles.select, flex: 1 }}>
-                  {['Couplet 1','Couplet 2','Couplet 3','Refrain','Pont','Intro','Outro','Verset','Chorus','Bridge'].map(n => (
+                  {NOMS_BLOCS.map(n => (
                     <option key={n} value={n}>{n}</option>
                   ))}
+                  {!NOMS_BLOCS.includes(bloc.nom) && (
+                    <option key={bloc.nom} value={bloc.nom}>{bloc.nom}</option>
+                  )}
                 </select>
                 {paroles.length > 1 && (
                   <button onClick={() => supprimerBloc(i)} style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px' }}>✕</button>
@@ -311,7 +400,7 @@ export default function AddSongPage() {
           ))}
           {erreur && <div style={styles.erreur}>{erreur}</div>}
           <button style={styles.boutonPrincipal} onClick={sauvegarder}>
-            ✅ Enregistrer le chant
+            ✅ {modeEdition ? 'Enregistrer les modifications' : 'Enregistrer le chant'}
           </button>
           <button style={{ ...styles.boutonSecondaire, marginTop: '8px', width: '100%', textAlign: 'center' }} onClick={() => setEtape(2)}>
             ← Retour
