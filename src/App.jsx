@@ -12,18 +12,15 @@ import HistoriquePage from './pages/HistoriquePage'
 import MembresPage from './pages/MembresPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import InscriptionPage from './pages/InscriptionPage'
-
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading">Chargement…</div>
   if (!user) return <Navigate to="/login" replace />
   return children
 }
-
 export default function App() {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading">Chargement…</div>
-
   return (
     <Routes>
       <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -38,6 +35,7 @@ export default function App() {
           <Route index element={<Navigate to="/repertoire" replace />} />
           <Route path="/repertoire" element={<RepertoirePage />} />
           <Route path="/repertoire/ajouter" element={<AddSongPage />} />
+          <Route path="/repertoire/:id/modifier" element={<AddSongPage />} />
           <Route path="/repertoire/:id" element={<SongDetailPage />} />
           <Route path="/evenements" element={<EvenementsPage />} />
           <Route path="/evenements/:id" element={<EvenementDetailPage />} />
