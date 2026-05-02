@@ -389,3 +389,10 @@ textarea.form-input { resize: vertical; min-height: 100px; }
   color: var(--texte-sec);
   font-size: 1rem;
 }
+/* ── Vue Jour J — plein écran ───────────────────────── */
+body.jour-j #root {
+  max-width: 100% !important;
+}
+body.jour-j .page-content {
+  padding: 0 !important;
+}
