@@ -1,175 +1,391 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { useTheme } from '../hooks/useTheme'
+/* ── RDPA Design Tokens ─────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
-export default function VueJourJPage() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const { cycleTheme, icon } = useTheme()
-  const [event, setEvent] = useState(null)
-  const [setlist, setSetlist] = useState([])
-  const [showAccords, setShowAccords] = useState(false)
-  const [loading, setLoading] = useState(true)
+:root {
+  --bleu-principal: #4BBFE8;
+  --bleu-ciel: #A8DDF2;
+  --bleu-profond: #1A7BAF;
+  --blanc: #FAFCFE;
+  --perle: #EEF4F8;
+  --texte: #1a2a3a;
+  --texte-sec: #4a6a7a;
+  --texte-ter: #8aaabb;
+  --surface: #ffffff;
+  --card: #f4f9fc;
+  --border: rgba(75, 191, 232, 0.2);
+  --nav-bg: #ffffff;
+  --header-bg: #ffffff;
 
-  useEffect(() => { fetchAll() }, [id])
+  --cat-adoration-bg: #E0F4FC; --cat-adoration-tx: #1A7BAF;
+  --cat-louange-bg:   #EAF3DE; --cat-louange-tx:   #3B6D11;
+  --cat-combat-bg:    #FEF0E6; --cat-combat-tx:    #A0521A;
+  --cat-victoire-bg:  #EAF4FA; --cat-victoire-tx:  #1A5E8A;
+  --cat-parvis-bg:    #FDF5E6; --cat-parvis-tx:    #7A5A1A;
 
-  async function fetchAll() {
-    const [{ data: ev }, { data: sl }] = await Promise.all([
-      supabase.from('evenements').select('*').eq('id', id).single(),
-      supabase.from('evenement_chants')
-        .select('*, chants(*)')
-        .eq('evenement_id', id)
-        .order('ordre'),
-    ])
-    setEvent(ev)
-    setSetlist(sl || [])
-    setLoading(false)
-  }
+  --font-title: 'Lora', Georgia, serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'DM Mono', monospace;
 
-  if (loading) return (
-    <div style={{ height: '100vh', background: '#0D1820', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(228,243,250,0.55)', fontFamily: 'DM Sans, sans-serif' }}>
-      Chargement…
-    </div>
-  )
-
-  const night = {
-    bg: '#0D1820',
-    surface: '#192840',
-    text: '#E4F3FA',
-    textSec: 'rgba(228,243,250,0.55)',
-    textTer: 'rgba(228,243,250,0.35)',
-    border: 'rgba(75,191,232,0.15)',
-    accent: '#4BBFE8',
-  }
-
-  return (
-    <div style={{ minHeight: '100vh', background: night.bg, color: night.text, fontFamily: 'DM Sans, sans-serif' }}>
-      {/* Header */}
-      <div style={{ position: 'sticky', top: 0, background: night.bg, borderBottom: `1px solid ${night.border}`, padding: '14px 20px', zIndex: 50, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: night.textSec, fontSize: '1.1rem', padding: '4px 8px 4px 0' }}>←</button>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: night.text }}>{event?.nom}</p>
-          <p style={{ fontSize: '0.72rem', color: night.textSec, marginTop: 1 }}>
-            {event?.date && new Date(event.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            {event?.lead && ` · ${event.lead}`}
-            {` · ${setlist.length} chant${setlist.length !== 1 ? 's' : ''}`}
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAccords(a => !a)}
-          style={{
-            background: showAccords ? night.accent : night.surface,
-            color: showAccords ? '#fff' : night.textSec,
-            border: `1px solid ${night.border}`,
-            borderRadius: 8, padding: '7px 12px',
-            cursor: 'pointer', fontSize: '0.78rem',
-            fontFamily: 'DM Sans, sans-serif',
-            transition: 'all 0.2s',
-          }}
-        >
-          ♩ Accords
-        </button>
-        <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>{icon}</button>
-      </div>
-
-      {/* Setlist */}
-      <div style={{ padding: '0 0 40px' }}>
-        {setlist.map((ec, i) => (
-          <SongBlock key={ec.id} ec={ec} index={i} showAccords={showAccords} night={night} />
-        ))}
-      </div>
-
-      {/* Legend */}
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: night.bg, borderTop: `1px solid ${night.border}`, padding: '8px 20px', display: 'flex', gap: 16, justifyContent: 'center' }}>
-        <LegendItem color="#B8972A" label="Modulation" />
-        <LegendItem color="#4BBFE8" label="Harmonie" />
-        <LegendItem color="#4a9a5a" label="Note" />
-      </div>
-    </div>
-  )
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 2px 16px rgba(75,191,232,0.10);
+  --shadow-md: 0 4px 32px rgba(75,191,232,0.15);
 }
 
-function LegendItem({ color, label }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.68rem', color: 'rgba(228,243,250,0.45)' }}>
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-      {label}
-    </div>
-  )
+/* ── Night mode ─────────────────────────────────────── */
+[data-theme="night"],
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="day"]) {
+    --blanc: #0D1820;
+    --perle: #132030;
+    --surface: #132030;
+    --card: #192840;
+    --texte: #E4F3FA;
+    --texte-sec: rgba(228,243,250,0.78);
+    --texte-ter: rgba(228,243,250,0.55);
+    --border: rgba(75,191,232,0.15);
+    --nav-bg: #0D1820;
+    --header-bg: #0D1820;
+    --shadow: 0 2px 16px rgba(0,0,0,0.4);
+
+    --cat-adoration-bg: #1A7BAF; --cat-adoration-tx: #E0F4FC;
+    --cat-louange-bg:   #3B6D11; --cat-louange-tx:   #EAF3DE;
+    --cat-combat-bg:    #A0521A; --cat-combat-tx:    #FEF0E6;
+    --cat-victoire-bg:  #1A5E8A; --cat-victoire-tx:  #EAF4FA;
+    --cat-parvis-bg:    #7A5A1A; --cat-parvis-tx:    #FDF5E6;
+  }
 }
 
-function SongBlock({ ec, index, showAccords, night }) {
-  const [openAnnotations, setOpenAnnotations] = useState(new Set())
-  const song = ec.chants || {}
-  const lines = (song.paroles || '').split('\n')
+[data-theme="night"] {
+  --blanc: #0D1820;
+  --perle: #132030;
+  --surface: #132030;
+  --card: #192840;
+  --texte: #E4F3FA;
+  --texte-sec: rgba(228,243,250,0.78);
+  --texte-ter: rgba(228,243,250,0.55);
+  --border: rgba(75,191,232,0.15);
+  --nav-bg: #0D1820;
+  --header-bg: #0D1820;
+  --shadow: 0 2px 16px rgba(0,0,0,0.4);
 
-  function toggleAnnotation(lineIdx) {
-    setOpenAnnotations(prev => {
-      const next = new Set(prev)
-      next.has(lineIdx) ? next.delete(lineIdx) : next.add(lineIdx)
-      return next
-    })
-  }
+  --cat-adoration-bg: #1A7BAF; --cat-adoration-tx: #E0F4FC;
+  --cat-louange-bg:   #3B6D11; --cat-louange-tx:   #EAF3DE;
+  --cat-combat-bg:    #A0521A; --cat-combat-tx:    #FEF0E6;
+  --cat-victoire-bg:  #1A5E8A; --cat-victoire-tx:  #EAF4FA;
+  --cat-parvis-bg:    #7A5A1A; --cat-parvis-tx:    #FDF5E6;
+}
 
-  return (
-    <div style={{ borderBottom: `1px solid ${night.border}`, padding: '24px 20px' }}>
-      {/* Song header */}
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.75rem', color: night.textTer }}>{index + 1}</span>
-          <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.6rem', fontWeight: 600, color: night.text, lineHeight: 1.2 }}>{song.titre || '—'}</h2>
-        </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {ec.tonalite_jour && (
-            <span style={{ background: 'rgba(75,191,232,0.15)', color: night.accent, padding: '3px 10px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 500 }}>
-              {ec.tonalite_jour}
-            </span>
-          )}
-          {ec.bpm_jour && <span style={{ fontSize: '0.75rem', color: night.textSec }}>{ec.bpm_jour} BPM</span>}
-          {song.categorie && <span style={{ fontSize: '0.75rem', color: night.textSec }}>{song.categorie}</span>}
-          {ec.lead_jour && <span style={{ fontSize: '0.75rem', color: night.textSec }}>Lead : {ec.lead_jour}</span>}
-        </div>
-        {ec.notes && (
-          <p style={{ marginTop: 8, fontSize: '0.8rem', color: night.textSec, fontStyle: 'italic', background: 'rgba(75,191,232,0.07)', padding: '6px 10px', borderRadius: 8, borderLeft: `2px solid ${night.accent}` }}>
-            {ec.notes}
-          </p>
-        )}
-      </div>
+/* ── Reset & Base ───────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      {/* Accords */}
-      {showAccords && song.accords && (
-        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '12px 14px', marginBottom: 16, border: `1px solid ${night.border}` }}>
-          <p style={{ fontSize: '0.65rem', color: night.textTer, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Accords</p>
-          <pre style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.82rem', color: night.text, whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>{song.accords}</pre>
-        </div>
-      )}
-      {showAccords && !song.accords && (
-        <p style={{ fontSize: '0.78rem', color: night.textTer, fontStyle: 'italic', marginBottom: 16 }}>Aucune grille renseignée — allez compléter la fiche.</p>
-      )}
+html, body {
+  height: 100%;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  background: var(--blanc);
+  color: var(--texte);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
 
-      {/* Paroles */}
-      {song.paroles ? (
-        <div>
-          {lines.map((line, lineIdx) => (
-            <div key={lineIdx} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-              <p style={{
-                flex: 1,
-                fontFamily: 'Cormorant Garamond, serif',
-                fontSize: '1.25rem',
-                lineHeight: 2,
-                color: line.trim() === '' ? 'transparent' : night.text,
-                minHeight: '2rem',
-                userSelect: 'text',
-              }}>
-                {line || '\u00A0'}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p style={{ color: night.textTer, fontStyle: 'italic', fontSize: '0.85rem' }}>Aucune parole enregistrée.</p>
-      )}
-    </div>
-  )
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ── Layout shells ──────────────────────────────────── */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.app-header h1 {
+  font-family: var(--font-title);
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: var(--texte);
+}
+
+.app-header h1 em {
+  color: var(--bleu-principal);
+  font-style: italic;
+}
+
+.theme-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.theme-btn:hover { background: var(--perle); }
+
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bottom-nav {
+  display: flex;
+  background: var(--nav-bg);
+  border-top: 1px solid var(--border);
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  flex-shrink: 0;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--texte-ter);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 500;
+  transition: color 0.2s;
+  text-decoration: none;
+}
+.nav-item.active { color: var(--bleu-principal); font-weight: 600; }
+.nav-item svg { width: 24px; height: 24px; }
+
+/* ── Cards ──────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+
+/* ── Search bar ─────────────────────────────────────── */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.search-bar input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  color: var(--texte);
+}
+.search-bar input::placeholder { color: var(--texte-ter); }
+.search-bar svg { color: var(--texte-ter); flex-shrink: 0; }
+
+/* ── Category chips ─────────────────────────────────── */
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+
+.chip {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: opacity 0.2s;
+}
+.chip.active { font-weight: 600; }
+.chip:not(.active) { opacity: 0.55; }
+
+/* ── Song row ───────────────────────────────────────── */
+.song-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  text-decoration: none;
+  color: inherit;
+}
+.song-row:hover { box-shadow: var(--shadow-md); }
+
+.song-row-info { flex: 1; min-width: 0; }
+.song-row-title {
+  font-family: var(--font-title);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--texte);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.song-row-meta {
+  font-size: 0.88rem;
+  color: var(--texte-sec);
+  margin-top: 3px;
+  font-weight: 400;
+}
+
+.cat-badge {
+  font-size: 0.8rem;
+  padding: 4px 11px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+/* ── Buttons ─────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 13px 22px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 500;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+.btn:hover { opacity: 0.9; box-shadow: var(--shadow-md); }
+.btn-primary { background: var(--bleu-principal); color: #fff; }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--texte);
+}
+.btn-full { width: 100%; justify-content: center; }
+
+/* ── FAB ─────────────────────────────────────────────── */
+.fab {
+  position: fixed;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bleu-principal);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(75,191,232,0.4);
+  transition: transform 0.2s;
+  z-index: 100;
+}
+.fab:hover { transform: scale(1.05); }
+
+/* ── Badge nouveau ───────────────────────────────────── */
+.badge-new {
+  font-size: 0.75rem;
+  background: var(--bleu-principal);
+  color: #fff;
+  padding: 3px 9px;
+  border-radius: 8px;
+  margin-left: 6px;
+  font-weight: 500;
+}
+
+/* ── Empty state ─────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--texte-sec);
+}
+.empty-state .emoji { font-size: 2.8rem; margin-bottom: 14px; }
+.empty-state p { font-size: 1rem; line-height: 1.6; }
+
+/* ── Form ────────────────────────────────────────────── */
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--texte-sec);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.form-input {
+  width: 100%;
+  padding: 13px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  color: var(--texte);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus { border-color: var(--bleu-principal); }
+.form-input::placeholder { color: var(--texte-ter); }
+textarea.form-input { resize: vertical; min-height: 100px; }
+
+/* ── Toast ───────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--texte);
+  color: var(--blanc);
+  padding: 11px 22px;
+  border-radius: 20px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  z-index: 1000;
+  animation: fadeInUp 0.3s ease;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Loading ─────────────────────────────────────────── */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--texte-sec);
+  font-size: 1rem;
 }
