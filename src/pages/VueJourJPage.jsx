@@ -147,13 +147,13 @@ function SongBlock({ ec, index, showAccords, night }) {
           {lines.map((line, lineIdx) => (
             <div key={lineIdx} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
               <p style={{
-                flex: 1,
-                fontFamily: 'Cormorant Garamond, serif',
-                fontSize: '1.25rem',
-                lineHeight: 2,
-                color: line.trim() === '' ? 'transparent' : night.text,
-                minHeight: '2rem',
-                userSelect: 'text',
+              flex: 1,
+              fontFamily: 'Cormorant Garamond, serif',
+              fontSize: '1.5rem',
+              lineHeight: 1.5,
+              color: line.trim() === '' ? 'transparent' : night.text,
+              minHeight: '1.5rem',
+              userSelect: 'text',
               }}>
                 {line || '\u00A0'}
               </p>
