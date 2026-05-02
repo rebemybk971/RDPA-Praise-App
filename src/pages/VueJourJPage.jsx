@@ -9,6 +9,7 @@ export default function VueJourJPage() {
   const { cycleTheme, icon } = useTheme()
   const [event, setEvent] = useState(null)
   const [setlist, setSetlist] = useState([])
+  const [annotations, setAnnotations] = useState({}) // V4 : annotations indexées par evenement_chant_id
   const [showAccords, setShowAccords] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -23,16 +24,47 @@ export default function VueJourJPage() {
   }, [])
 
   async function fetchAll() {
-    const [{ data: ev }, { data: sl }] = await Promise.all([
-      supabase.from('evenements').select('*').eq('id', id).single(),
-      supabase.from('evenement_chants')
-        .select('*, chants(*)')
-        .eq('evenement_id', id)
-        .order('ordre'),
-    ])
-    setEvent(ev)
-    setSetlist(sl || [])
-    setLoading(false)
+    try {
+      // Étape 1 : récupérer l'événement et la setlist
+      const [{ data: ev }, { data: sl }] = await Promise.all([
+        supabase.from('evenements').select('*').eq('id', id).single(),
+        supabase.from('evenement_chants')
+          .select('*, chants(*)')
+          .eq('evenement_id', id)
+          .order('ordre'),
+      ])
+      setEvent(ev)
+      setSetlist(sl || [])
+
+      // V4 étape 2 : récupérer les annotations pour tous les chants de la setlist
+      // Grâce aux politiques RLS, Supabase ne renvoie que :
+      //   - les annotations niveau 'equipe' (visibles par tous)
+      //   - les annotations niveau 'perso' dont l'utilisateur est l'auteur
+      if (sl && sl.length > 0) {
+        const ecIds = sl.map(ec => ec.id)
+        const { data: ann, error: annError } = await supabase
+          .from('annotations')
+          .select('*')
+          .in('evenement_chant_id', ecIds)
+          .order('created_at', { ascending: true })
+
+        if (annError) {
+          console.error('Erreur récupération annotations :', annError)
+        } else {
+          // On regroupe les annotations par evenement_chant_id pour faciliter l'affichage
+          const annByEc = {}
+          for (const a of (ann || [])) {
+            if (!annByEc[a.evenement_chant_id]) annByEc[a.evenement_chant_id] = []
+            annByEc[a.evenement_chant_id].push(a)
+          }
+          setAnnotations(annByEc)
+        }
+      }
+    } catch (err) {
+      console.error('Erreur fetchAll Vue Jour J :', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) return (
@@ -82,7 +114,14 @@ export default function VueJourJPage() {
 
       <div style={{ padding: '0 0 60px' }}>
         {setlist.map((ec, i) => (
-          <SongBlock key={ec.id} ec={ec} index={i} showAccords={showAccords} night={night} />
+          <SongBlock
+            key={ec.id}
+            ec={ec}
+            index={i}
+            showAccords={showAccords}
+            night={night}
+            songAnnotations={annotations[ec.id] || []}
+          />
         ))}
       </div>
 
@@ -104,7 +143,7 @@ function LegendItem({ color, label }) {
   )
 }
 
-function SongBlock({ ec, index, showAccords, night }) {
+function SongBlock({ ec, index, showAccords, night, songAnnotations }) {
   const song = ec.chants || {}
   const lines = (song.paroles || '').split('\n')
 
@@ -144,21 +183,31 @@ function SongBlock({ ec, index, showAccords, night }) {
 
       {song.paroles ? (
         <div>
-          {lines.map((line, lineIdx) => (
-            <div key={lineIdx} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-              <p style={{
-              flex: 1,
-              fontFamily: 'Cormorant Garamond, serif',
-              fontSize: '1.5rem',
-              lineHeight: 1.5,
-              color: line.trim() === '' ? 'transparent' : night.text,
-              minHeight: '1.5rem',
-              userSelect: 'text',
-              }}>
-                {line || '\u00A0'}
-              </p>
-            </div>
-          ))}
+          {lines.map((line, lineIdx) => {
+            // V4 étape 2 : annotations attachées à cette ligne précise
+            const lineAnnotations = songAnnotations.filter(a => a.ligne_index === lineIdx)
+            return (
+              <div key={lineIdx} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <p style={{
+                  flex: 1,
+                  fontFamily: 'Cormorant Garamond, serif',
+                  fontSize: '1.5rem',
+                  lineHeight: 1.5,
+                  color: line.trim() === '' ? 'transparent' : night.text,
+                  minHeight: '1.5rem',
+                  userSelect: 'text',
+                }}>
+                  {line || '\u00A0'}
+                </p>
+                {/* V4 : pour debug pendant l'Étape 2, on affiche un petit compteur si la ligne a des annotations */}
+                {lineAnnotations.length > 0 && (
+                  <span style={{ fontSize: '0.7rem', color: night.textTer, marginTop: 6 }}>
+                    [{lineAnnotations.length}]
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
       ) : (
         <p style={{ color: night.textTer, fontStyle: 'italic', fontSize: '0.85rem' }}>Aucune parole enregistrée.</p>
