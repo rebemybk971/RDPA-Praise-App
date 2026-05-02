@@ -14,6 +14,14 @@ export default function VueJourJPage() {
 
   useEffect(() => { fetchAll() }, [id])
 
+  // V1 : ajoute la classe "jour-j" sur le body pour activer le plein écran (CSS dans index.css)
+  useEffect(() => {
+    document.body.classList.add('jour-j')
+    return () => {
+      document.body.classList.remove('jour-j')
+    }
+  }, [])
+
   async function fetchAll() {
     const [{ data: ev }, { data: sl }] = await Promise.all([
       supabase.from('evenements').select('*').eq('id', id).single(),
@@ -72,13 +80,13 @@ export default function VueJourJPage() {
         <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>{icon}</button>
       </div>
 
-      <div style={{ padding: '0 0 40px' }}>
+      <div style={{ padding: '0 0 60px' }}>
         {setlist.map((ec, i) => (
           <SongBlock key={ec.id} ec={ec} index={i} showAccords={showAccords} night={night} />
         ))}
       </div>
 
-      <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 430, background: night.bg, borderTop: `1px solid ${night.border}`, padding: '8px 20px', display: 'flex', gap: 16, justifyContent: 'center' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: night.bg, borderTop: `1px solid ${night.border}`, padding: '8px 20px', display: 'flex', gap: 16, justifyContent: 'center' }}>
         <LegendItem color="#B8972A" label="Modulation" />
         <LegendItem color="#4BBFE8" label="Harmonie" />
         <LegendItem color="#4a9a5a" label="Note" />
