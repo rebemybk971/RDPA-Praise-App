@@ -30,15 +30,25 @@ export default function VueJourJPage() {
   }, [])
 
   // V4 étape 3 : ferme le menu contextuel si on clique ailleurs
+  // Correctif Bug B : on utilise mousedown au lieu de click pour éviter
+  // le conflit d'événements quand on clique sur un bouton du menu
   useEffect(() => {
     if (!contextMenu) return
     function handleClickOutside(e) {
-      if (!e.target.closest('[data-context-menu]') && !e.target.closest('[data-line-paroles]')) {
+      if (!e.target.closest('[data-context-menu]')) {
         setContextMenu(null)
       }
     }
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
+    // setTimeout pour laisser le clic d'ouverture du menu se terminer
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('touchstart', handleClickOutside)
+    }, 50)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [contextMenu])
 
   async function fetchAll() {
