@@ -4,6 +4,16 @@ import { supabase } from '../lib/supabase'
 import { useTheme } from '../hooks/useTheme'
 import { useAuth } from '../hooks/useAuth'
 
+// V4 étape 4 : configuration centrale des 6 types d'annotations
+const ANNOTATION_TYPES = {
+  unisson:    { label: 'Unisson',    icon: '═', color: '#A78BD9', niveau: 'equipe' },
+  harmonie:   { label: 'Harmonie',   icon: '♬', color: '#4BBFE8', niveau: 'equipe' },
+  modulation: { label: 'Modulation', icon: '𝄞', color: '#B8972A', niveau: 'equipe' },
+  rythmique:  { label: 'Rythmique',  icon: '♩', color: '#E8924B', niveau: 'equipe' },
+  note_libre: { label: 'Note libre', icon: '✎', color: '#4a9a5a', niveau: 'equipe' },
+  perso:      { label: 'Note pour moi', icon: '✎', color: '#7a8a95', niveau: 'perso' },
+}
+
 export default function VueJourJPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -11,17 +21,15 @@ export default function VueJourJPage() {
   const { user, profile } = useAuth()
   const [event, setEvent] = useState(null)
   const [setlist, setSetlist] = useState([])
-  const [annotations, setAnnotations] = useState({}) // V4 : annotations indexées par evenement_chant_id
+  const [annotations, setAnnotations] = useState({})
   const [showAccords, setShowAccords] = useState(false)
   const [loading, setLoading] = useState(true)
-
-  // V4 étape 3 : menu contextuel ouvert (un seul à la fois dans toute la page)
-  // Forme : { ecId: '...', lineIdx: 0, x: 100, y: 200, mode: 'menu' | 'saisie', selectedType: '...' }
   const [contextMenu, setContextMenu] = useState(null)
+  // V4 étape 4 : suivi des bulles d'info ouvertes (par id d'annotation)
+  const [openBubbles, setOpenBubbles] = useState({})
 
   useEffect(() => { fetchAll() }, [id])
 
-  // V1 : ajoute la classe "jour-j" sur le body pour activer le plein écran (CSS dans index.css)
   useEffect(() => {
     document.body.classList.add('jour-j')
     return () => {
@@ -29,9 +37,7 @@ export default function VueJourJPage() {
     }
   }, [])
 
-  // V4 étape 3 : ferme le menu contextuel si on clique ailleurs
-  // Correctif Bug B : on utilise mousedown au lieu de click pour éviter
-  // le conflit d'événements quand on clique sur un bouton du menu
+  // Fermeture du menu contextuel au clic ailleurs
   useEffect(() => {
     if (!contextMenu) return
     function handleClickOutside(e) {
@@ -39,7 +45,6 @@ export default function VueJourJPage() {
         setContextMenu(null)
       }
     }
-    // setTimeout pour laisser le clic d'ouverture du menu se terminer
     const timer = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside)
       document.addEventListener('touchstart', handleClickOutside)
@@ -53,7 +58,6 @@ export default function VueJourJPage() {
 
   async function fetchAll() {
     try {
-      // Étape 1 : récupérer l'événement et la setlist
       const [{ data: ev }, { data: sl }] = await Promise.all([
         supabase.from('evenements').select('*').eq('id', id).single(),
         supabase.from('evenement_chants')
@@ -64,7 +68,6 @@ export default function VueJourJPage() {
       setEvent(ev)
       setSetlist(sl || [])
 
-      // V4 étape 2 : récupérer les annotations pour tous les chants de la setlist
       if (sl && sl.length > 0) {
         const ecIds = sl.map(ec => ec.id)
         const { data: ann, error: annError } = await supabase
@@ -91,7 +94,6 @@ export default function VueJourJPage() {
     }
   }
 
-  // V4 étape 3 : enregistrer une nouvelle annotation
   async function saveAnnotation(ecId, lineIdx, niveau, type, contenu) {
     if (!user || !contenu.trim()) return
     try {
@@ -112,7 +114,6 @@ export default function VueJourJPage() {
         alert('Erreur lors de l\'enregistrement : ' + error.message)
         return
       }
-      // Mise à jour locale de l'état pour réaffichage immédiat
       setAnnotations(prev => {
         const next = { ...prev }
         if (!next[ecId]) next[ecId] = []
@@ -124,6 +125,52 @@ export default function VueJourJPage() {
       console.error('Erreur saveAnnotation :', err)
       alert('Erreur réseau : ' + err.message)
     }
+  }
+
+  // V4 étape 4 : suppression d'une annotation
+  async function deleteAnnotation(annotationId, ecId) {
+    if (!confirm('Supprimer cette annotation ?')) return
+    try {
+      const { error } = await supabase
+        .from('annotations')
+        .delete()
+        .eq('id', annotationId)
+      if (error) {
+        console.error('Erreur suppression annotation :', error)
+        alert('Erreur lors de la suppression : ' + error.message)
+        return
+      }
+      // Retirer de l'état local
+      setAnnotations(prev => {
+        const next = { ...prev }
+        if (next[ecId]) {
+          next[ecId] = next[ecId].filter(a => a.id !== annotationId)
+        }
+        return next
+      })
+      // Fermer la bulle de cette annotation
+      setOpenBubbles(prev => {
+        const next = { ...prev }
+        delete next[annotationId]
+        return next
+      })
+    } catch (err) {
+      console.error('Erreur deleteAnnotation :', err)
+      alert('Erreur réseau : ' + err.message)
+    }
+  }
+
+  // V4 étape 4 : ouvrir/fermer une bulle d'info
+  function toggleBubble(annotationId) {
+    setOpenBubbles(prev => {
+      const next = { ...prev }
+      if (next[annotationId]) {
+        delete next[annotationId]
+      } else {
+        next[annotationId] = true
+      }
+      return next
+    })
   }
 
   if (loading) return (
@@ -142,7 +189,6 @@ export default function VueJourJPage() {
     accent: '#4BBFE8',
   }
 
-  // V4 étape 3 : peut-il créer des annotations d'équipe ?
   const canAnnotateTeam = profile?.role === 'admin' || profile?.role === 'editeur'
 
   return (
@@ -184,11 +230,14 @@ export default function VueJourJPage() {
             night={night}
             songAnnotations={annotations[ec.id] || []}
             onLineLongPress={(lineIdx, x, y) => setContextMenu({ ecId: ec.id, lineIdx, x, y, mode: 'menu' })}
+            openBubbles={openBubbles}
+            onToggleBubble={toggleBubble}
+            onDeleteAnnotation={deleteAnnotation}
+            currentUserId={user?.id}
           />
         ))}
       </div>
 
-      {/* V4 étape 3 : menu contextuel flottant */}
       {contextMenu && (
         <ContextMenu
           contextMenu={contextMenu}
@@ -200,42 +249,30 @@ export default function VueJourJPage() {
       )}
 
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: night.bg, borderTop: `1px solid ${night.border}`, padding: '8px 20px', display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <LegendItem color="#A78BD9" label="Unisson" />
-        <LegendItem color="#4BBFE8" label="Harmonie" />
-        <LegendItem color="#B8972A" label="Modulation" />
-        <LegendItem color="#E8924B" label="Rythmique" />
-        <LegendItem color="#4a9a5a" label="Note libre" />
-        <LegendItem color="#7a8a95" label="Note perso" />
+        {Object.entries(ANNOTATION_TYPES).map(([key, t]) => (
+          <LegendItem key={key} icon={t.icon} color={t.color} label={t.label} />
+        ))}
       </div>
     </div>
   )
 }
 
-function LegendItem({ color, label }) {
+function LegendItem({ icon, color, label }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.68rem', color: 'rgba(228,243,250,0.45)' }}>
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', color: 'rgba(228,243,250,0.45)' }}>
+      <span style={{ color: color, fontSize: '0.85rem' }}>{icon}</span>
       {label}
     </div>
   )
 }
 
-// V4 étape 3 : composant menu contextuel
 function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSave }) {
-  const { ecId, lineIdx, x, y, mode, selectedType, selectedNiveau } = contextMenu
+  const { ecId, lineIdx, x, y, mode, selectedType } = contextMenu
   const [contenu, setContenu] = useState('')
 
-  // 6 types disponibles + niveau associé
-  const teamTypes = [
-    { type: 'unisson', label: 'Unisson', color: '#A78BD9', niveau: 'equipe' },
-    { type: 'harmonie', label: 'Harmonie', color: '#4BBFE8', niveau: 'equipe' },
-    { type: 'modulation', label: 'Modulation', color: '#B8972A', niveau: 'equipe' },
-    { type: 'rythmique', label: 'Rythmique', color: '#E8924B', niveau: 'equipe' },
-    { type: 'note_libre', label: 'Note libre', color: '#4a9a5a', niveau: 'equipe' },
-  ]
-  const persoType = { type: 'perso', label: 'Note pour moi', color: '#7a8a95', niveau: 'perso' }
+  const teamTypes = ['unisson', 'harmonie', 'modulation', 'rythmique', 'note_libre']
+  const persoType = 'perso'
 
-  // Position : on s'assure que le menu reste visible à l'écran
   const menuStyle = {
     position: 'fixed',
     left: Math.min(x, window.innerWidth - 220),
@@ -251,11 +288,12 @@ function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSa
   }
 
   if (mode === 'saisie') {
-    const selected = [...teamTypes, persoType].find(t => t.type === selectedType)
+    const selected = ANNOTATION_TYPES[selectedType]
     return (
       <div style={menuStyle} data-context-menu>
-        <p style={{ fontSize: '0.7rem', color: night.textSec, marginBottom: 6, padding: '4px 8px' }}>
-          {selected?.label}
+        <p style={{ fontSize: '0.7rem', color: night.textSec, marginBottom: 6, padding: '4px 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ color: selected.color, fontSize: '0.9rem' }}>{selected.icon}</span>
+          {selected.label}
         </p>
         <input
           autoFocus
@@ -264,7 +302,7 @@ function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSa
           onChange={(e) => setContenu(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && contenu.trim()) {
-              onSave(ecId, lineIdx, selected.niveau, selected.type, contenu)
+              onSave(ecId, lineIdx, selected.niveau, selectedType, contenu)
             } else if (e.key === 'Escape') {
               setContextMenu(null)
             }
@@ -274,7 +312,7 @@ function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSa
             width: '100%',
             background: night.bg,
             color: night.text,
-            border: `1px solid ${selected?.color || night.border}`,
+            border: `1px solid ${selected.color}`,
             borderRadius: 8,
             padding: '8px 10px',
             fontSize: '0.85rem',
@@ -286,19 +324,15 @@ function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSa
         <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
           <button
             onClick={() => setContextMenu(null)}
-            style={{
-              background: 'none', border: 'none', color: night.textSec,
-              cursor: 'pointer', fontSize: '0.78rem', padding: '4px 8px',
-            }}
+            style={{ background: 'none', border: 'none', color: night.textSec, cursor: 'pointer', fontSize: '0.78rem', padding: '4px 8px' }}
           >
             Annuler
           </button>
           <button
-            onClick={() => contenu.trim() && onSave(ecId, lineIdx, selected.niveau, selected.type, contenu)}
+            onClick={() => contenu.trim() && onSave(ecId, lineIdx, selected.niveau, selectedType, contenu)}
             disabled={!contenu.trim()}
             style={{
-              background: selected?.color || night.accent,
-              color: '#fff', border: 'none',
+              background: selected.color, color: '#fff', border: 'none',
               borderRadius: 6, padding: '4px 12px',
               cursor: contenu.trim() ? 'pointer' : 'not-allowed',
               opacity: contenu.trim() ? 1 : 0.4,
@@ -312,7 +346,6 @@ function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSa
     )
   }
 
-  // Mode menu : choix du type
   return (
     <div style={menuStyle} data-context-menu>
       {canAnnotateTeam && (
@@ -320,14 +353,18 @@ function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSa
           <p style={{ fontSize: '0.65rem', color: night.textTer, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '6px 8px 4px' }}>
             Pour l'équipe
           </p>
-          {teamTypes.map(t => (
-            <MenuButton
-              key={t.type}
-              label={t.label}
-              color={t.color}
-              onClick={() => setContextMenu({ ...contextMenu, mode: 'saisie', selectedType: t.type, selectedNiveau: t.niveau })}
-            />
-          ))}
+          {teamTypes.map(typeKey => {
+            const t = ANNOTATION_TYPES[typeKey]
+            return (
+              <MenuButton
+                key={typeKey}
+                icon={t.icon}
+                label={t.label}
+                color={t.color}
+                onClick={() => setContextMenu({ ...contextMenu, mode: 'saisie', selectedType: typeKey })}
+              />
+            )
+          })}
           <div style={{ height: 1, background: night.border, margin: '6px 0' }} />
         </>
       )}
@@ -335,20 +372,21 @@ function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSa
         Pour moi
       </p>
       <MenuButton
-        label={persoType.label}
-        color={persoType.color}
-        onClick={() => setContextMenu({ ...contextMenu, mode: 'saisie', selectedType: persoType.type, selectedNiveau: persoType.niveau })}
+        icon={ANNOTATION_TYPES[persoType].icon}
+        label={ANNOTATION_TYPES[persoType].label}
+        color={ANNOTATION_TYPES[persoType].color}
+        onClick={() => setContextMenu({ ...contextMenu, mode: 'saisie', selectedType: persoType })}
       />
     </div>
   )
 }
 
-function MenuButton({ label, color, onClick }) {
+function MenuButton({ icon, label, color, onClick }) {
   return (
     <button
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8,
+        display: 'flex', alignItems: 'center', gap: 10,
         width: '100%', background: 'none', border: 'none',
         cursor: 'pointer', padding: '8px 10px',
         color: '#E4F3FA', fontSize: '0.85rem',
@@ -360,13 +398,13 @@ function MenuButton({ label, color, onClick }) {
       onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
       onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
     >
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <span style={{ color: color, fontSize: '1rem', width: 16, textAlign: 'center' }}>{icon}</span>
       {label}
     </button>
   )
 }
 
-function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongPress }) {
+function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId }) {
   const song = ec.chants || {}
   const lines = (song.paroles || '').split('\n')
 
@@ -416,6 +454,11 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
                 lineAnnotations={lineAnnotations}
                 night={night}
                 onLongPress={onLineLongPress}
+                openBubbles={openBubbles}
+                onToggleBubble={onToggleBubble}
+                onDeleteAnnotation={onDeleteAnnotation}
+                currentUserId={currentUserId}
+                ecId={ec.id}
               />
             )
           })}
@@ -427,8 +470,7 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
   )
 }
 
-// V4 étape 3 : ligne de paroles avec gestion tap long / clic-droit
-function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress }) {
+function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId, ecId }) {
   const [longPressTimer, setLongPressTimer] = useState(null)
 
   function handleTouchStart(e) {
@@ -437,7 +479,7 @@ function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress }) {
     const y = touch.clientY
     const timer = setTimeout(() => {
       onLongPress(lineIdx, x, y)
-    }, 500) // 500ms = appui prolongé
+    }, 500)
     setLongPressTimer(timer)
   }
 
@@ -449,7 +491,7 @@ function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress }) {
   }
 
   function handleContextMenu(e) {
-    e.preventDefault() // Empêche le menu natif du navigateur
+    e.preventDefault()
     onLongPress(lineIdx, e.clientX, e.clientY)
   }
 
@@ -473,10 +515,95 @@ function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress }) {
       }}>
         {line || '\u00A0'}
       </p>
+      {/* V4 étape 4 : icônes des annotations + bulles */}
       {lineAnnotations.length > 0 && (
-        <span style={{ fontSize: '0.7rem', color: night.textTer, marginTop: 6 }}>
-          [{lineAnnotations.length}]
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0, marginTop: 6, position: 'relative' }}>
+          {lineAnnotations.map(a => {
+            const config = ANNOTATION_TYPES[a.type]
+            if (!config) return null
+            const isOpen = openBubbles[a.id]
+            const isAuthor = a.auteur_id === currentUserId
+            return (
+              <div key={a.id} style={{ position: 'relative' }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleBubble(a.id)
+                  }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: config.color, fontSize: '1.1rem', padding: '0 2px',
+                    lineHeight: 1, fontFamily: 'serif',
+                  }}
+                  title={config.label}
+                >
+                  {config.icon}
+                </button>
+                {isOpen && (
+                  <AnnotationBubble
+                    annotation={a}
+                    config={config}
+                    night={night}
+                    isAuthor={isAuthor}
+                    onClose={() => onToggleBubble(a.id)}
+                    onDelete={() => onDeleteAnnotation(a.id, ecId)}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// V4 étape 4 : bulle d'info au-dessus d'une annotation
+function AnnotationBubble({ annotation, config, night, isAuthor, onClose, onDelete }) {
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'absolute',
+        bottom: 'calc(100% + 8px)',
+        right: 0,
+        background: night.surface,
+        border: `1px solid ${config.color}`,
+        borderRadius: 10,
+        padding: '10px 12px',
+        minWidth: 180,
+        maxWidth: 280,
+        boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+        zIndex: 80,
+        fontFamily: 'DM Sans, sans-serif',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: config.color, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <span style={{ fontSize: '0.95rem' }}>{config.icon}</span>
+          {config.label}
         </span>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', color: night.textSec, cursor: 'pointer', fontSize: '0.95rem', padding: 0, lineHeight: 1 }}
+        >
+          ×
+        </button>
+      </div>
+      <p style={{ fontSize: '0.85rem', color: night.text, margin: 0, lineHeight: 1.4 }}>
+        {annotation.contenu}
+      </p>
+      {isAuthor && (
+        <button
+          onClick={onDelete}
+          style={{
+            marginTop: 8, background: 'none', border: 'none',
+            color: night.textTer, cursor: 'pointer', fontSize: '0.7rem',
+            padding: 0, fontFamily: 'DM Sans, sans-serif',
+          }}
+        >
+          🗑️ Supprimer
+        </button>
       )}
     </div>
   )
