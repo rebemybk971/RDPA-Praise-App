@@ -2,16 +2,22 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useTheme } from '../hooks/useTheme'
+import { useAuth } from '../hooks/useAuth'
 
 export default function VueJourJPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { cycleTheme, icon } = useTheme()
+  const { user, profile } = useAuth()
   const [event, setEvent] = useState(null)
   const [setlist, setSetlist] = useState([])
   const [annotations, setAnnotations] = useState({}) // V4 : annotations indexées par evenement_chant_id
   const [showAccords, setShowAccords] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  // V4 étape 3 : menu contextuel ouvert (un seul à la fois dans toute la page)
+  // Forme : { ecId: '...', lineIdx: 0, x: 100, y: 200, mode: 'menu' | 'saisie', selectedType: '...' }
+  const [contextMenu, setContextMenu] = useState(null)
 
   useEffect(() => { fetchAll() }, [id])
 
@@ -22,6 +28,18 @@ export default function VueJourJPage() {
       document.body.classList.remove('jour-j')
     }
   }, [])
+
+  // V4 étape 3 : ferme le menu contextuel si on clique ailleurs
+  useEffect(() => {
+    if (!contextMenu) return
+    function handleClickOutside(e) {
+      if (!e.target.closest('[data-context-menu]') && !e.target.closest('[data-line-paroles]')) {
+        setContextMenu(null)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [contextMenu])
 
   async function fetchAll() {
     try {
@@ -37,9 +55,6 @@ export default function VueJourJPage() {
       setSetlist(sl || [])
 
       // V4 étape 2 : récupérer les annotations pour tous les chants de la setlist
-      // Grâce aux politiques RLS, Supabase ne renvoie que :
-      //   - les annotations niveau 'equipe' (visibles par tous)
-      //   - les annotations niveau 'perso' dont l'utilisateur est l'auteur
       if (sl && sl.length > 0) {
         const ecIds = sl.map(ec => ec.id)
         const { data: ann, error: annError } = await supabase
@@ -51,7 +66,6 @@ export default function VueJourJPage() {
         if (annError) {
           console.error('Erreur récupération annotations :', annError)
         } else {
-          // On regroupe les annotations par evenement_chant_id pour faciliter l'affichage
           const annByEc = {}
           for (const a of (ann || [])) {
             if (!annByEc[a.evenement_chant_id]) annByEc[a.evenement_chant_id] = []
@@ -64,6 +78,41 @@ export default function VueJourJPage() {
       console.error('Erreur fetchAll Vue Jour J :', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // V4 étape 3 : enregistrer une nouvelle annotation
+  async function saveAnnotation(ecId, lineIdx, niveau, type, contenu) {
+    if (!user || !contenu.trim()) return
+    try {
+      const { data, error } = await supabase
+        .from('annotations')
+        .insert({
+          evenement_chant_id: ecId,
+          ligne_index: lineIdx,
+          niveau: niveau,
+          type: type,
+          contenu: contenu.trim(),
+          auteur_id: user.id,
+        })
+        .select()
+        .single()
+      if (error) {
+        console.error('Erreur enregistrement annotation :', error)
+        alert('Erreur lors de l\'enregistrement : ' + error.message)
+        return
+      }
+      // Mise à jour locale de l'état pour réaffichage immédiat
+      setAnnotations(prev => {
+        const next = { ...prev }
+        if (!next[ecId]) next[ecId] = []
+        next[ecId] = [...next[ecId], data]
+        return next
+      })
+      setContextMenu(null)
+    } catch (err) {
+      console.error('Erreur saveAnnotation :', err)
+      alert('Erreur réseau : ' + err.message)
     }
   }
 
@@ -82,6 +131,9 @@ export default function VueJourJPage() {
     border: 'rgba(75,191,232,0.15)',
     accent: '#4BBFE8',
   }
+
+  // V4 étape 3 : peut-il créer des annotations d'équipe ?
+  const canAnnotateTeam = profile?.role === 'admin' || profile?.role === 'editeur'
 
   return (
     <div style={{ minHeight: '100vh', background: night.bg, color: night.text, fontFamily: 'DM Sans, sans-serif' }}>
@@ -121,14 +173,29 @@ export default function VueJourJPage() {
             showAccords={showAccords}
             night={night}
             songAnnotations={annotations[ec.id] || []}
+            onLineLongPress={(lineIdx, x, y) => setContextMenu({ ecId: ec.id, lineIdx, x, y, mode: 'menu' })}
           />
         ))}
       </div>
 
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: night.bg, borderTop: `1px solid ${night.border}`, padding: '8px 20px', display: 'flex', gap: 16, justifyContent: 'center' }}>
-        <LegendItem color="#B8972A" label="Modulation" />
+      {/* V4 étape 3 : menu contextuel flottant */}
+      {contextMenu && (
+        <ContextMenu
+          contextMenu={contextMenu}
+          setContextMenu={setContextMenu}
+          night={night}
+          canAnnotateTeam={canAnnotateTeam}
+          onSave={saveAnnotation}
+        />
+      )}
+
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: night.bg, borderTop: `1px solid ${night.border}`, padding: '8px 20px', display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <LegendItem color="#A78BD9" label="Unisson" />
         <LegendItem color="#4BBFE8" label="Harmonie" />
-        <LegendItem color="#4a9a5a" label="Note" />
+        <LegendItem color="#B8972A" label="Modulation" />
+        <LegendItem color="#E8924B" label="Rythmique" />
+        <LegendItem color="#4a9a5a" label="Note libre" />
+        <LegendItem color="#7a8a95" label="Note perso" />
       </div>
     </div>
   )
@@ -143,7 +210,153 @@ function LegendItem({ color, label }) {
   )
 }
 
-function SongBlock({ ec, index, showAccords, night, songAnnotations }) {
+// V4 étape 3 : composant menu contextuel
+function ContextMenu({ contextMenu, setContextMenu, night, canAnnotateTeam, onSave }) {
+  const { ecId, lineIdx, x, y, mode, selectedType, selectedNiveau } = contextMenu
+  const [contenu, setContenu] = useState('')
+
+  // 6 types disponibles + niveau associé
+  const teamTypes = [
+    { type: 'unisson', label: 'Unisson', color: '#A78BD9', niveau: 'equipe' },
+    { type: 'harmonie', label: 'Harmonie', color: '#4BBFE8', niveau: 'equipe' },
+    { type: 'modulation', label: 'Modulation', color: '#B8972A', niveau: 'equipe' },
+    { type: 'rythmique', label: 'Rythmique', color: '#E8924B', niveau: 'equipe' },
+    { type: 'note_libre', label: 'Note libre', color: '#4a9a5a', niveau: 'equipe' },
+  ]
+  const persoType = { type: 'perso', label: 'Note pour moi', color: '#7a8a95', niveau: 'perso' }
+
+  // Position : on s'assure que le menu reste visible à l'écran
+  const menuStyle = {
+    position: 'fixed',
+    left: Math.min(x, window.innerWidth - 220),
+    top: Math.min(y, window.innerHeight - 320),
+    background: night.surface,
+    border: `1px solid ${night.border}`,
+    borderRadius: 12,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+    padding: 8,
+    zIndex: 100,
+    minWidth: 200,
+    fontFamily: 'DM Sans, sans-serif',
+  }
+
+  if (mode === 'saisie') {
+    const selected = [...teamTypes, persoType].find(t => t.type === selectedType)
+    return (
+      <div style={menuStyle} data-context-menu>
+        <p style={{ fontSize: '0.7rem', color: night.textSec, marginBottom: 6, padding: '4px 8px' }}>
+          {selected?.label}
+        </p>
+        <input
+          autoFocus
+          type="text"
+          value={contenu}
+          onChange={(e) => setContenu(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && contenu.trim()) {
+              onSave(ecId, lineIdx, selected.niveau, selected.type, contenu)
+            } else if (e.key === 'Escape') {
+              setContextMenu(null)
+            }
+          }}
+          placeholder="Tapez votre annotation…"
+          style={{
+            width: '100%',
+            background: night.bg,
+            color: night.text,
+            border: `1px solid ${selected?.color || night.border}`,
+            borderRadius: 8,
+            padding: '8px 10px',
+            fontSize: '0.85rem',
+            fontFamily: 'DM Sans, sans-serif',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setContextMenu(null)}
+            style={{
+              background: 'none', border: 'none', color: night.textSec,
+              cursor: 'pointer', fontSize: '0.78rem', padding: '4px 8px',
+            }}
+          >
+            Annuler
+          </button>
+          <button
+            onClick={() => contenu.trim() && onSave(ecId, lineIdx, selected.niveau, selected.type, contenu)}
+            disabled={!contenu.trim()}
+            style={{
+              background: selected?.color || night.accent,
+              color: '#fff', border: 'none',
+              borderRadius: 6, padding: '4px 12px',
+              cursor: contenu.trim() ? 'pointer' : 'not-allowed',
+              opacity: contenu.trim() ? 1 : 0.4,
+              fontSize: '0.78rem',
+            }}
+          >
+            ✓ Valider
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Mode menu : choix du type
+  return (
+    <div style={menuStyle} data-context-menu>
+      {canAnnotateTeam && (
+        <>
+          <p style={{ fontSize: '0.65rem', color: night.textTer, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '6px 8px 4px' }}>
+            Pour l'équipe
+          </p>
+          {teamTypes.map(t => (
+            <MenuButton
+              key={t.type}
+              label={t.label}
+              color={t.color}
+              onClick={() => setContextMenu({ ...contextMenu, mode: 'saisie', selectedType: t.type, selectedNiveau: t.niveau })}
+            />
+          ))}
+          <div style={{ height: 1, background: night.border, margin: '6px 0' }} />
+        </>
+      )}
+      <p style={{ fontSize: '0.65rem', color: night.textTer, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '6px 8px 4px' }}>
+        Pour moi
+      </p>
+      <MenuButton
+        label={persoType.label}
+        color={persoType.color}
+        onClick={() => setContextMenu({ ...contextMenu, mode: 'saisie', selectedType: persoType.type, selectedNiveau: persoType.niveau })}
+      />
+    </div>
+  )
+}
+
+function MenuButton({ label, color, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        width: '100%', background: 'none', border: 'none',
+        cursor: 'pointer', padding: '8px 10px',
+        color: '#E4F3FA', fontSize: '0.85rem',
+        textAlign: 'left',
+        fontFamily: 'DM Sans, sans-serif',
+        borderRadius: 6,
+        transition: 'background 0.15s',
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+      onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+    >
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      {label}
+    </button>
+  )
+}
+
+function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongPress }) {
   const song = ec.chants || {}
   const lines = (song.paroles || '').split('\n')
 
@@ -184,33 +397,76 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations }) {
       {song.paroles ? (
         <div>
           {lines.map((line, lineIdx) => {
-            // V4 étape 2 : annotations attachées à cette ligne précise
             const lineAnnotations = songAnnotations.filter(a => a.ligne_index === lineIdx)
             return (
-              <div key={lineIdx} style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <p style={{
-                  flex: 1,
-                  fontFamily: 'Cormorant Garamond, serif',
-                  fontSize: '1.5rem',
-                  lineHeight: 1.5,
-                  color: line.trim() === '' ? 'transparent' : night.text,
-                  minHeight: '1.5rem',
-                  userSelect: 'text',
-                }}>
-                  {line || '\u00A0'}
-                </p>
-                {/* V4 : pour debug pendant l'Étape 2, on affiche un petit compteur si la ligne a des annotations */}
-                {lineAnnotations.length > 0 && (
-                  <span style={{ fontSize: '0.7rem', color: night.textTer, marginTop: 6 }}>
-                    [{lineAnnotations.length}]
-                  </span>
-                )}
-              </div>
+              <ParolesLine
+                key={lineIdx}
+                line={line}
+                lineIdx={lineIdx}
+                lineAnnotations={lineAnnotations}
+                night={night}
+                onLongPress={onLineLongPress}
+              />
             )
           })}
         </div>
       ) : (
         <p style={{ color: night.textTer, fontStyle: 'italic', fontSize: '0.85rem' }}>Aucune parole enregistrée.</p>
+      )}
+    </div>
+  )
+}
+
+// V4 étape 3 : ligne de paroles avec gestion tap long / clic-droit
+function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress }) {
+  const [longPressTimer, setLongPressTimer] = useState(null)
+
+  function handleTouchStart(e) {
+    const touch = e.touches[0]
+    const x = touch.clientX
+    const y = touch.clientY
+    const timer = setTimeout(() => {
+      onLongPress(lineIdx, x, y)
+    }, 500) // 500ms = appui prolongé
+    setLongPressTimer(timer)
+  }
+
+  function handleTouchEnd() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      setLongPressTimer(null)
+    }
+  }
+
+  function handleContextMenu(e) {
+    e.preventDefault() // Empêche le menu natif du navigateur
+    onLongPress(lineIdx, e.clientX, e.clientY)
+  }
+
+  return (
+    <div
+      data-line-paroles
+      style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 8 }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
+      onContextMenu={handleContextMenu}
+    >
+      <p style={{
+        flex: 1,
+        fontFamily: 'Cormorant Garamond, serif',
+        fontSize: '1.5rem',
+        lineHeight: 1.5,
+        color: line.trim() === '' ? 'transparent' : night.text,
+        minHeight: '1.5rem',
+        userSelect: 'text',
+      }}>
+        {line || '\u00A0'}
+      </p>
+      {lineAnnotations.length > 0 && (
+        <span style={{ fontSize: '0.7rem', color: night.textTer, marginTop: 6 }}>
+          [{lineAnnotations.length}]
+        </span>
       )}
     </div>
   )
