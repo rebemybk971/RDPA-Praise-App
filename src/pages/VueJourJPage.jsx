@@ -206,6 +206,22 @@ export default function VueJourJPage() {
           </p>
         </div>
         <button
+          onClick={() => setReadingMode(r => !r)}
+          style={{
+            background: readingMode ? night.accent : night.surface,
+            color: readingMode ? '#fff' : night.textSec,
+            border: `1px solid ${night.border}`,
+            borderRadius: 8, padding: '7px 12px',
+            cursor: 'pointer', fontSize: '0.78rem',
+            fontFamily: 'DM Sans, sans-serif',
+            transition: 'all 0.2s',
+          }}
+          title={readingMode ? 'Afficher les annotations' : 'Masquer les annotations'}
+        >
+          {readingMode ? '👁️‍🗨️' : '👁️'}
+        </button>
+        
+        <button
           onClick={() => setShowAccords(a => !a)}
           style={{
             background: showAccords ? night.accent : night.surface,
@@ -236,6 +252,7 @@ export default function VueJourJPage() {
             onToggleBubble={toggleBubble}
             onDeleteAnnotation={deleteAnnotation}
             currentUserId={user?.id}
+            readingMode={readingMode}
           />
         ))}
       </div>
@@ -406,7 +423,7 @@ function MenuButton({ icon, label, color, onClick }) {
   )
 }
 
-function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId }) {
+function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId, readingMode }) {
   const song = ec.chants || {}
   const lines = (song.paroles || '').split('\n')
 
@@ -461,6 +478,7 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
                 onDeleteAnnotation={onDeleteAnnotation}
                 currentUserId={currentUserId}
                 ecId={ec.id}
+                readingMode={readingMode}
               />
             )
           })}
@@ -472,7 +490,7 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
   )
 }
 
-function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId, ecId }) {
+function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId, ecId, readingMode }) {
   const [longPressTimer, setLongPressTimer] = useState(null)
 
   function handleTouchStart(e) {
@@ -518,7 +536,7 @@ function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress, openB
         {line || '\u00A0'}
       </p>
       {/* V4 étape 4 : icônes des annotations + bulles */}
-      {lineAnnotations.length > 0 && (
+      {!readingMode && lineAnnotations.length > 0 && (
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0, marginTop: 6, position: 'relative' }}>
           {lineAnnotations.map(a => {
             const config = ANNOTATION_TYPES[a.type]
