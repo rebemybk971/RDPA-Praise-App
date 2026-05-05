@@ -27,7 +27,9 @@ export default function VueJourJPage() {
   const [contextMenu, setContextMenu] = useState(null)
   // V4 étape 4 : suivi des bulles d'info ouvertes (par id d'annotation)
   const [openBubbles, setOpenBubbles] = useState({})
-
+  
+// V4 étape 5 : mode lecture pure (icônes masquées)
+  const [readingMode, setReadingMode] = useState(false)
   useEffect(() => { fetchAll() }, [id])
 
   useEffect(() => {
