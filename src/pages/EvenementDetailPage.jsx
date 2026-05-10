@@ -15,11 +15,37 @@ function catStyle(cat) {
   return map[k] || { background: 'var(--perle)', color: 'var(--texte-sec)' }
 }
 
+// Format une date YYYY-MM-DD (ou ISO) en français, SANS décalage de fuseau horaire
+function formatDateLocale(dateStr, options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) {
+  if (!dateStr) return ''
+  // On prend uniquement YYYY-MM-DD (au cas où Supabase renvoie un timestamp)
+  const ymd = String(dateStr).slice(0, 10)
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ''
+  // On crée une Date avec l'heure 12h en local pour éviter tout débordement de fuseau
+  const localDate = new Date(y, m - 1, d, 12, 0, 0)
+  return localDate.toLocaleDateString('fr-FR', options)
+}
+
+// Récupère le jour de la semaine en local (0 = dimanche)
+function getJourSemaine(dateStr) {
+  if (!dateStr) return null
+  const ymd = String(dateStr).slice(0, 10)
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return null
+  return new Date(y, m - 1, d, 12, 0, 0).getDay()
+}
+
 // Heure par défaut selon le jour de la semaine
 function defaultHeure(dateStr) {
   if (!dateStr) return '19:00'
-  const d = new Date(dateStr)
-  return d.getDay() === 0 ? '09:30' : '19:00'  // 0 = dimanche
+  return getJourSemaine(dateStr) === 0 ? '09:30' : '19:00'  // 0 = dimanche
+}
+
+// Extrait YYYY-MM-DD pour pré-remplir un input type="date"
+function dateForInput(dateStr) {
+  if (!dateStr) return ''
+  return String(dateStr).slice(0, 10)
 }
 
 export default function EvenementDetailPage() {
@@ -122,7 +148,7 @@ export default function EvenementDetailPage() {
   function shareWhatsApp() {
     const lines = [
       `🎵 *${event.nom}*`,
-      event.date ? `📅 ${new Date(event.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}` : '',
+      event.date ? `📅 ${formatDateLocale(event.date, { weekday: 'long', day: 'numeric', month: 'long' })}` : '',
       '',
       ...setlist.map((s, i) => {
         const t = s.chants?.titre || ''
@@ -138,7 +164,7 @@ export default function EvenementDetailPage() {
   function copyShare() {
     const lines = [
       `🎵 ${event?.nom}`,
-      event?.date ? `📅 ${new Date(event.date).toLocaleDateString('fr-FR')}` : '',
+      event?.date ? `📅 ${formatDateLocale(event.date, { day: 'numeric', month: 'numeric', year: 'numeric' })}` : '',
       ...setlist.map((s, i) => {
         const t = s.chants?.titre || ''
         const lead = s.lead ? ` — ${s.lead}` : ''
@@ -172,7 +198,7 @@ export default function EvenementDetailPage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ fontFamily: 'var(--font-title)', fontSize: '1.5rem', fontWeight: 600 }}>{event.nom}</h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--texte-sec)', marginTop: 4 }}>
-              {event.date && new Date(event.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {formatDateLocale(event.date)}
               {heureAffichee && ` · ${heureAffichee}`}
               {event.type_culte && ` · ${event.type_culte}`}
             </p>
@@ -391,7 +417,7 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
 
 function EditEventModal({ event, onClose, onSave }) {
   const [nom, setNom] = useState(event.nom || '')
-  const [date, setDate] = useState(event.date || '')
+  const [date, setDate] = useState(dateForInput(event.date))
   const [heure, setHeure] = useState(event.heure || '')
   const [typeCulte, setTypeCulte] = useState(event.type_culte || '')
   const [notes, setNotes] = useState(event.notes || '')
@@ -399,6 +425,7 @@ function EditEventModal({ event, onClose, onSave }) {
 
   // Heure suggérée (auto)
   const heureAuto = defaultHeure(date)
+  const isDimanche = date && getJourSemaine(date) === 0
 
   async function handleSubmit() {
     if (!nom.trim()) return
@@ -478,7 +505,7 @@ function EditEventModal({ event, onClose, onSave }) {
         </div>
         {!heure && (
           <p style={{ fontSize: '0.72rem', color: 'var(--texte-ter)', marginTop: -10, marginBottom: 14, fontStyle: 'italic' }}>
-            Si laissé vide, l'heure sera fixée à {heureAuto} ({date && new Date(date).getDay() === 0 ? 'dimanche' : 'jour de semaine'}).
+            Si laissé vide, l'heure sera fixée à {heureAuto} ({isDimanche ? 'dimanche' : 'jour de semaine'}).
           </p>
         )}
 
