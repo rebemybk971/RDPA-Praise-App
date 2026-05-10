@@ -13,6 +13,16 @@ function catStyle(cat) {
   return map[k] || { background: 'var(--perle)', color: 'var(--texte-sec)' }
 }
 
+// Format une date YYYY-MM-DD (ou ISO) en français, SANS décalage de fuseau horaire
+function formatDateLocale(dateStr, options = { day: 'numeric', month: 'short', year: 'numeric' }) {
+  if (!dateStr) return ''
+  const ymd = String(dateStr).slice(0, 10)
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ''
+  const localDate = new Date(y, m - 1, d, 12, 0, 0)
+  return localDate.toLocaleDateString('fr-FR', options)
+}
+
 export default function HistoriquePage() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -128,7 +138,7 @@ export default function HistoriquePage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0', borderBottom: '1px solid var(--border)', marginBottom: 10 }}>
                 <p style={{ fontFamily: 'var(--font-title)', fontSize: '0.95rem', fontWeight: 600, color: 'var(--texte)' }}>{group.event?.nom}</p>
                 <p style={{ fontSize: '0.72rem', color: 'var(--texte-ter)' }}>
-                  {group.event?.date && new Date(group.event.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {formatDateLocale(group.event?.date)}
                 </p>
               </div>
               {/* Songs in event */}
