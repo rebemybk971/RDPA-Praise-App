@@ -22,17 +22,22 @@ export default function HistoriquePage() {
   useEffect(() => { fetchData() }, [])
 
   async function fetchData() {
-    const { data: rows } = await supabase
+    const { data: rows, error } = await supabase
       .from('evenement_chants')
-      .select('*, chants(titre, categorie), evenements(nom, date, lead)')
+      .select('*, chants(titre, categorie), evenements(nom, date)')
       .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('[HistoriquePage] Erreur fetch :', error)
+    }
     setData(rows || [])
     setLoading(false)
   }
 
   const filtered = data.filter(r =>
     r.chants?.titre?.toLowerCase().includes(search.toLowerCase()) ||
-    r.evenements?.nom?.toLowerCase().includes(search.toLowerCase())
+    r.evenements?.nom?.toLowerCase().includes(search.toLowerCase()) ||
+    (r.lead || '').toLowerCase().includes(search.toLowerCase())
   )
 
   // Group by event for "cultes" tab
@@ -55,6 +60,36 @@ export default function HistoriquePage() {
   ).sort((a, b) => b.count - a.count)
 
   const maxFreq = freq[0]?.count || 1
+
+  // Solistes pour le "solistes" tab — séparés en deux sections
+  // Section 1 : membres inscrits (lead_id rempli, regroupés par lead_id)
+  // Section 2 : autres (lead_id vide mais lead rempli, regroupés par texte)
+  const solistesInscrits = Object.values(
+    filtered.reduce((acc, row) => {
+      if (!row.lead_id) return acc
+      const key = row.lead_id
+      if (!acc[key]) acc[key] = { id: row.lead_id, nom: row.lead || '—', count: 0 }
+      acc[key].count++
+      return acc
+    }, {})
+  ).sort((a, b) => b.count - a.count)
+
+  const solistesAutres = Object.values(
+    filtered.reduce((acc, row) => {
+      if (row.lead_id) return acc
+      if (!row.lead || !row.lead.trim()) return acc
+      const key = row.lead.trim().toLowerCase()
+      if (!acc[key]) acc[key] = { nom: row.lead.trim(), count: 0 }
+      acc[key].count++
+      return acc
+    }, {})
+  ).sort((a, b) => b.count - a.count)
+
+  const maxSolistes = Math.max(
+    solistesInscrits[0]?.count || 0,
+    solistesAutres[0]?.count || 0,
+    1
+  )
 
   if (loading) return <div className="loading">Chargement…</div>
 
@@ -98,9 +133,10 @@ export default function HistoriquePage() {
               </div>
               {/* Songs in event */}
               {group.songs.map((row, si) => (
-                <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 6px', borderBottom: '1px solid var(--border)' }}>
+                <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 6px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--texte-ter)', minWidth: 18 }}>{si + 1}</span>
-                  <span style={{ flex: 1, fontSize: '0.88rem', color: 'var(--texte)', fontFamily: 'var(--font-title)', fontSize: '0.95rem' }}>{row.chants?.titre}</span>
+                  <span style={{ flex: 1, minWidth: 120, fontFamily: 'var(--font-title)', fontSize: '0.95rem', color: 'var(--texte)' }}>{row.chants?.titre}</span>
+                  {row.lead && <span style={{ fontSize: '0.78rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>🎤 {row.lead}</span>}
                   {row.tonalite_jour && <span style={{ fontSize: '0.75rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>{row.tonalite_jour}</span>}
                   {row.chants?.categorie && <span className="cat-badge" style={{ ...catStyle(row.chants.categorie), fontSize: '0.62rem', padding: '2px 7px' }}>{row.chants.categorie}</span>}
                 </div>
@@ -132,7 +168,56 @@ export default function HistoriquePage() {
 
       {/* Tab: Solistes */}
       {tab === 'solistes' && (
-        <div className="empty-state"><div className="emoji">🎤</div><p>Données des solistes disponibles dès que des leads sont renseignés dans les événements.</p></div>
+        solistesInscrits.length === 0 && solistesAutres.length === 0 ? (
+          <div className="empty-state">
+            <div className="emoji">🎤</div>
+            <p>Aucun soliste renseigné pour l'instant.<br/>Désignez les solistes depuis la page d'un événement.</p>
+          </div>
+        ) : (
+          <>
+            {/* Section : Membres inscrits */}
+            {solistesInscrits.length > 0 && (
+              <>
+                <p style={{ fontSize: '0.7rem', color: 'var(--texte-ter)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, marginTop: 4 }}>
+                  Membres inscrits
+                </p>
+                {solistesInscrits.map((item, i) => (
+                  <div key={`in-${item.id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--texte-ter)', minWidth: 24, textAlign: 'right' }}>{i + 1}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: 'var(--font-title)', fontSize: '0.95rem', color: 'var(--texte)', marginBottom: 4 }}>🎤 {item.nom}</p>
+                      <div style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${(item.count / maxSolistes) * 100}%`, background: 'var(--bleu-principal)', borderRadius: 2, transition: 'width 0.5s ease' }} />
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--texte-sec)', minWidth: 30, textAlign: 'right' }}>{item.count}×</span>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* Section : Autres (texte libre) */}
+            {solistesAutres.length > 0 && (
+              <>
+                <p style={{ fontSize: '0.7rem', color: 'var(--texte-ter)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8, marginTop: 24 }}>
+                  Autres
+                </p>
+                {solistesAutres.map((item, i) => (
+                  <div key={`out-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--texte-ter)', minWidth: 24, textAlign: 'right' }}>{i + 1}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: 'var(--font-title)', fontSize: '0.95rem', color: 'var(--texte)', marginBottom: 4 }}>🎤 {item.nom}</p>
+                      <div style={{ height: 4, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${(item.count / maxSolistes) * 100}%`, background: 'var(--texte-ter)', borderRadius: 2, transition: 'width 0.5s ease' }} />
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--texte-sec)', minWidth: 30, textAlign: 'right' }}>{item.count}×</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        )
       )}
     </>
   )
