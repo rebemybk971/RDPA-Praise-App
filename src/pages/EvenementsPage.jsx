@@ -2,6 +2,16 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+// Format une date YYYY-MM-DD (ou ISO) en français, SANS décalage de fuseau horaire
+function formatDateLocale(dateStr, options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) {
+  if (!dateStr) return ''
+  const ymd = String(dateStr).slice(0, 10)
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ''
+  const localDate = new Date(y, m - 1, d, 12, 0, 0)
+  return localDate.toLocaleDateString('fr-FR', options)
+}
+
 export default function EvenementsPage() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -37,7 +47,7 @@ export default function EvenementsPage() {
               <div>
                 <p style={{ fontFamily: 'var(--font-title)', fontSize: '1.1rem', fontWeight: 600, color: 'var(--texte)' }}>{ev.nom}</p>
                 <p style={{ fontSize: '0.78rem', color: 'var(--texte-sec)', marginTop: 2 }}>
-                  {ev.date && new Date(ev.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {formatDateLocale(ev.date)}
                 </p>
               </div>
               <button
@@ -48,8 +58,7 @@ export default function EvenementsPage() {
               </button>
             </div>
             <div style={{ display: 'flex', gap: 12, fontSize: '0.75rem', color: 'var(--texte-sec)' }}>
-              {ev.lead && <span>Lead : {ev.lead}</span>}
-              {ev.type_culte && <span>· {ev.type_culte}</span>}
+              {ev.type_culte && <span>{ev.type_culte}</span>}
               {ev.evenement_chants?.[0]?.count > 0 && <span>· {ev.evenement_chants[0].count} chant(s)</span>}
             </div>
           </Link>
@@ -62,7 +71,7 @@ export default function EvenementsPage() {
 }
 
 function AddEventModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ nom: '', date: '', type_culte: '', lead: '', notes: '' })
+  const [form, setForm] = useState({ nom: '', date: '', type_culte: '', notes: '' })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -94,10 +103,6 @@ function AddEventModal({ onClose, onSaved }) {
             <label className="form-label">Type</label>
             <input className="form-input" value={form.type_culte} onChange={e => set('type_culte', e.target.value)} placeholder="Culte, Jeunesse…" />
           </div>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Lead</label>
-          <input className="form-input" value={form.lead} onChange={e => set('lead', e.target.value)} placeholder="Nom du lead" />
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
