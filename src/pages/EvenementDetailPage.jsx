@@ -21,6 +21,7 @@ export default function EvenementDetailPage() {
   const { profile } = useAuth()
   const [event, setEvent] = useState(null)
   const [setlist, setSetlist] = useState([])
+  const [membres, setMembres] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddSong, setShowAddSong] = useState(false)
   const [showShare, setShowShare] = useState(false)
@@ -30,9 +31,10 @@ export default function EvenementDetailPage() {
 
   async function fetchAll() {
     try {
-      const [evRes, slRes] = await Promise.all([
+      const [evRes, slRes, mbRes] = await Promise.all([
         supabase.from('evenements').select('*').eq('id', id).single(),
         supabase.from('evenement_chants').select('*, chants(*)').eq('evenement_id', id).order('ordre'),
+        supabase.from('membres').select('id, nom').eq('actif', true).order('nom'),
       ])
 
       if (evRes.error) {
@@ -43,9 +45,14 @@ export default function EvenementDetailPage() {
         console.error('[fetchAll] Erreur evenement_chants :', slRes.error)
         toast(`⚠️ Erreur setlist : ${slRes.error.message}`)
       }
+      if (mbRes.error) {
+        console.error('[fetchAll] Erreur membres :', mbRes.error)
+        toast(`⚠️ Erreur membres : ${mbRes.error.message}`)
+      }
 
       setEvent(evRes.data)
       setSetlist(slRes.data || [])
+      setMembres(mbRes.data || [])
     } catch (err) {
       console.error('[fetchAll] Exception :', err)
       toast(`⚠️ Erreur : ${err.message}`)
@@ -67,13 +74,33 @@ export default function EvenementDetailPage() {
     toast('Chant retiré ✓')
   }
 
+  async function updateLead(ecId, leadId, leadText) {
+    const payload = { lead_id: leadId, lead: leadText }
+    const { error } = await supabase
+      .from('evenement_chants')
+      .update(payload)
+      .eq('id', ecId)
+
+    if (error) {
+      console.error('[updateLead] Erreur :', error)
+      toast(`⚠️ Soliste non enregistré : ${error.message}`)
+      return
+    }
+    setSetlist(s => s.map(x => x.id === ecId ? { ...x, lead_id: leadId, lead: leadText } : x))
+    toast('Soliste enregistré ✓')
+  }
+
   function shareWhatsApp() {
     const lines = [
       `🎵 *${event.nom}*`,
       event.date ? `📅 ${new Date(event.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}` : '',
-      event.lead ? `🎤 Lead : ${event.lead}` : '',
       '',
-      ...setlist.map((s, i) => `${i + 1}. ${s.chants?.titre}${s.tonalite_jour ? ` (${s.tonalite_jour})` : ''}`),
+      ...setlist.map((s, i) => {
+        const t = s.chants?.titre || ''
+        const lead = s.lead ? ` — ${s.lead}` : ''
+        const ton = s.tonalite_jour ? ` (${s.tonalite_jour})` : ''
+        return `${i + 1}. ${t}${lead}${ton}`
+      }),
     ].filter(l => l !== undefined).join('\n')
     setShowShare(false)
     window.open(`https://wa.me/?text=${encodeURIComponent(lines)}`, '_blank')
@@ -83,8 +110,12 @@ export default function EvenementDetailPage() {
     const lines = [
       `🎵 ${event?.nom}`,
       event?.date ? `📅 ${new Date(event.date).toLocaleDateString('fr-FR')}` : '',
-      event?.lead ? `🎤 ${event.lead}` : '',
-      ...setlist.map((s, i) => `${i + 1}. ${s.chants?.titre}${s.tonalite_jour ? ` (${s.tonalite_jour})` : ''}`),
+      ...setlist.map((s, i) => {
+        const t = s.chants?.titre || ''
+        const lead = s.lead ? ` — ${s.lead}` : ''
+        const ton = s.tonalite_jour ? ` (${s.tonalite_jour})` : ''
+        return `${i + 1}. ${t}${lead}${ton}`
+      }),
     ].filter(Boolean).join('\n')
     navigator.clipboard.writeText(lines)
     toast('Message copié !')
@@ -110,7 +141,6 @@ export default function EvenementDetailPage() {
             <h2 style={{ fontFamily: 'var(--font-title)', fontSize: '1.5rem', fontWeight: 600 }}>{event.nom}</h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--texte-sec)', marginTop: 4 }}>
               {event.date && new Date(event.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              {event.lead && ` · ${event.lead}`}
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -132,18 +162,28 @@ export default function EvenementDetailPage() {
         </div>
       ) : (
         setlist.map((ec, i) => (
-          <div key={ec.id} className="card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--texte-ter)', minWidth: 20, textAlign: 'center' }}>{i + 1}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontFamily: 'var(--font-title)', fontSize: '1rem', fontWeight: 600, color: 'var(--texte)' }}>{ec.chants?.titre}</p>
-              <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
-                {ec.chants?.categorie && <span className="cat-badge" style={{ ...catStyle(ec.chants.categorie), fontSize: '0.65rem', padding: '2px 8px' }}>{ec.chants.categorie}</span>}
-                {ec.tonalite_jour && <span style={{ fontSize: '0.75rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>{ec.tonalite_jour}</span>}
+          <div key={ec.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--texte-ter)', minWidth: 20, textAlign: 'center' }}>{i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontFamily: 'var(--font-title)', fontSize: '1rem', fontWeight: 600, color: 'var(--texte)' }}>{ec.chants?.titre}</p>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                  {ec.chants?.categorie && <span className="cat-badge" style={{ ...catStyle(ec.chants.categorie), fontSize: '0.65rem', padding: '2px 8px' }}>{ec.chants.categorie}</span>}
+                  {ec.tonalite_jour && <span style={{ fontSize: '0.75rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>{ec.tonalite_jour}</span>}
+                </div>
               </div>
+              {canEdit && (
+                <button onClick={() => removeSong(ec.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--texte-ter)', fontSize: '1rem', padding: 4 }}>✕</button>
+              )}
             </div>
-            {canEdit && (
-              <button onClick={() => removeSong(ec.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--texte-ter)', fontSize: '1rem', padding: 4 }}>✕</button>
-            )}
+
+            {/* Sélecteur soliste inline */}
+            <SoloistePicker
+              ec={ec}
+              membres={membres}
+              canEdit={canEdit}
+              onChange={updateLead}
+            />
           </div>
         ))
       )}
@@ -181,6 +221,127 @@ export default function EvenementDetailPage() {
         </div>
       )}
     </>
+  )
+}
+
+function SoloistePicker({ ec, membres, canEdit, onChange }) {
+  // Mode courant : 'membre' (sélection dans la liste), 'libre' (texte tapé), 'aucun' (vide)
+  const [mode, setMode] = useState(() => {
+    if (ec.lead_id) return 'membre'
+    if (ec.lead) return 'libre'
+    return 'aucun'
+  })
+  const [texteLibre, setTexteLibre] = useState(ec.lead || '')
+
+  // Si on n'est pas admin/éditeur, on affiche en lecture seule
+  if (!canEdit) {
+    if (!ec.lead) return null
+    return (
+      <div style={{ paddingLeft: 32, fontSize: '0.8rem', color: 'var(--texte-sec)' }}>
+        🎤 {ec.lead}
+      </div>
+    )
+  }
+
+  function handleSelectChange(e) {
+    const value = e.target.value
+    if (value === '') {
+      // Aucun
+      setMode('aucun')
+      setTexteLibre('')
+      onChange(ec.id, null, null)
+    } else if (value === '__autre__') {
+      // Bascule vers texte libre
+      setMode('libre')
+      setTexteLibre('')
+    } else {
+      // Membre choisi : value contient l'id du membre
+      const m = membres.find(x => x.id === value)
+      if (m) {
+        setMode('membre')
+        setTexteLibre('')
+        onChange(ec.id, m.id, m.nom)
+      }
+    }
+  }
+
+  function handleTexteBlur() {
+    const t = texteLibre.trim()
+    if (t === '') {
+      setMode('aucun')
+      onChange(ec.id, null, null)
+    } else {
+      onChange(ec.id, null, t)
+    }
+  }
+
+  return (
+    <div style={{ paddingLeft: 32, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: '0.8rem', color: 'var(--texte-sec)' }}>🎤 Soliste :</span>
+
+      {mode !== 'libre' ? (
+        <select
+          value={ec.lead_id || ''}
+          onChange={handleSelectChange}
+          style={{
+            fontSize: '0.8rem',
+            padding: '4px 8px',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            background: 'var(--card)',
+            color: 'var(--texte)',
+            fontFamily: 'var(--font-ui)',
+            cursor: 'pointer',
+            flex: 1,
+            minWidth: 120,
+          }}
+        >
+          <option value="">— Aucun —</option>
+          {membres.map(m => (
+            <option key={m.id} value={m.id}>{m.nom}</option>
+          ))}
+          <option value="__autre__">✏️ Autre (saisir un nom)…</option>
+        </select>
+      ) : (
+        <>
+          <input
+            type="text"
+            value={texteLibre}
+            onChange={e => setTexteLibre(e.target.value)}
+            onBlur={handleTexteBlur}
+            placeholder="Nom du soliste"
+            autoFocus
+            style={{
+              fontSize: '0.8rem',
+              padding: '4px 8px',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'var(--card)',
+              color: 'var(--texte)',
+              fontFamily: 'var(--font-ui)',
+              flex: 1,
+              minWidth: 120,
+            }}
+          />
+          <button
+            onClick={() => {
+              setMode(ec.lead_id ? 'membre' : 'aucun')
+              setTexteLibre('')
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--texte-ter)',
+              fontSize: '0.85rem',
+            }}
+            title="Annuler la saisie libre"
+          >
+            ↩︎
+          </button>
+        </>
+      )}
+    </div>
   )
 }
 
