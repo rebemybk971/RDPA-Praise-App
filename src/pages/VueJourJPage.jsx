@@ -14,6 +14,16 @@ const ANNOTATION_TYPES = {
   perso:      { label: 'Note pour moi', icon: '✎', color: '#7a8a95', niveau: 'perso' },
 }
 
+// Format une date YYYY-MM-DD (ou ISO) en français, SANS décalage de fuseau horaire
+function formatDateLocale(dateStr, options = { weekday: 'long', day: 'numeric', month: 'long' }) {
+  if (!dateStr) return ''
+  const ymd = String(dateStr).slice(0, 10)
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ''
+  const localDate = new Date(y, m - 1, d, 12, 0, 0)
+  return localDate.toLocaleDateString('fr-FR', options)
+}
+
 export default function VueJourJPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -200,7 +210,7 @@ export default function VueJourJPage() {
         <div style={{ flex: 1 }}>
           <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: night.text }}>{event?.nom}</p>
           <p style={{ fontSize: '0.72rem', color: night.textSec, marginTop: 1 }}>
-            {event?.date && new Date(event.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {formatDateLocale(event?.date)}
             {` · ${setlist.length} chant${setlist.length !== 1 ? 's' : ''}`}
           </p>
         </div>
