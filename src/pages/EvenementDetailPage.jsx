@@ -15,6 +15,13 @@ function catStyle(cat) {
   return map[k] || { background: 'var(--perle)', color: 'var(--texte-sec)' }
 }
 
+// Heure par défaut selon le jour de la semaine
+function defaultHeure(dateStr) {
+  if (!dateStr) return '19:00'
+  const d = new Date(dateStr)
+  return d.getDay() === 0 ? '09:30' : '19:00'  // 0 = dimanche
+}
+
 export default function EvenementDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -25,6 +32,7 @@ export default function EvenementDetailPage() {
   const [loading, setLoading] = useState(true)
   const [showAddSong, setShowAddSong] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
 
   useEffect(() => { fetchAll() }, [id])
@@ -90,6 +98,27 @@ export default function EvenementDetailPage() {
     toast('Soliste enregistré ✓')
   }
 
+  async function saveEvent(updated) {
+    try {
+      const { error } = await supabase
+        .from('evenements')
+        .update(updated)
+        .eq('id', id)
+      if (error) {
+        console.error('[saveEvent] Erreur :', error)
+        toast(`⚠️ Modification échouée : ${error.message}`)
+        return false
+      }
+      setEvent(prev => ({ ...prev, ...updated }))
+      toast('Événement modifié ✓')
+      return true
+    } catch (err) {
+      console.error('[saveEvent] Exception :', err)
+      toast(`⚠️ Erreur : ${err.message}`)
+      return false
+    }
+  }
+
   function shareWhatsApp() {
     const lines = [
       `🎵 *${event.nom}*`,
@@ -127,6 +156,9 @@ export default function EvenementDetailPage() {
 
   const canEdit = profile?.role === 'admin' || profile?.role === 'editeur'
 
+  // Heure affichée dans l'en-tête (auto si vide)
+  const heureAffichee = event.heure || defaultHeure(event.date)
+
   return (
     <>
       {toastMsg && <div className="toast">{toastMsg}</div>}
@@ -136,14 +168,19 @@ export default function EvenementDetailPage() {
         <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--texte-sec)', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-ui)', fontSize: '0.85rem', marginBottom: 12 }}>
           ← Événements
         </button>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ fontFamily: 'var(--font-title)', fontSize: '1.5rem', fontWeight: 600 }}>{event.nom}</h2>
             <p style={{ fontSize: '0.8rem', color: 'var(--texte-sec)', marginTop: 4 }}>
               {event.date && new Date(event.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {heureAffichee && ` · ${heureAffichee}`}
+              {event.type_culte && ` · ${event.type_culte}`}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {canEdit && (
+              <button onClick={() => setShowEdit(true)} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', fontSize: '1rem' }} title="Modifier">✏️</button>
+            )}
             <button onClick={() => setShowShare(true)} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', fontSize: '1rem' }} title="Partager">📤</button>
             <button onClick={() => navigate(`/evenements/${id}/jour-j`)} style={{ background: 'var(--bleu-principal)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'var(--font-ui)' }}>🎤 Jour J</button>
           </div>
@@ -204,6 +241,18 @@ export default function EvenementDetailPage() {
         />
       )}
 
+      {/* Edit event modal */}
+      {showEdit && (
+        <EditEventModal
+          event={event}
+          onClose={() => setShowEdit(false)}
+          onSave={async (updated) => {
+            const ok = await saveEvent(updated)
+            if (ok) setShowEdit(false)
+          }}
+        />
+      )}
+
       {/* Share modal */}
       {showShare && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}>
@@ -225,7 +274,6 @@ export default function EvenementDetailPage() {
 }
 
 function SoloistePicker({ ec, membres, canEdit, onChange }) {
-  // Mode courant : 'membre' (sélection dans la liste), 'libre' (texte tapé), 'aucun' (vide)
   const [mode, setMode] = useState(() => {
     if (ec.lead_id) return 'membre'
     if (ec.lead) return 'libre'
@@ -233,7 +281,6 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
   })
   const [texteLibre, setTexteLibre] = useState(ec.lead || '')
 
-  // Si on n'est pas admin/éditeur, on affiche en lecture seule
   if (!canEdit) {
     if (!ec.lead) return null
     return (
@@ -246,16 +293,13 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
   function handleSelectChange(e) {
     const value = e.target.value
     if (value === '') {
-      // Aucun
       setMode('aucun')
       setTexteLibre('')
       onChange(ec.id, null, null)
     } else if (value === '__autre__') {
-      // Bascule vers texte libre
       setMode('libre')
       setTexteLibre('')
     } else {
-      // Membre choisi : value contient l'id du membre
       const m = membres.find(x => x.id === value)
       if (m) {
         setMode('membre')
@@ -341,6 +385,165 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
           </button>
         </>
       )}
+    </div>
+  )
+}
+
+function EditEventModal({ event, onClose, onSave }) {
+  const [nom, setNom] = useState(event.nom || '')
+  const [date, setDate] = useState(event.date || '')
+  const [heure, setHeure] = useState(event.heure || '')
+  const [typeCulte, setTypeCulte] = useState(event.type_culte || '')
+  const [notes, setNotes] = useState(event.notes || '')
+  const [saving, setSaving] = useState(false)
+
+  // Heure suggérée (auto)
+  const heureAuto = defaultHeure(date)
+
+  async function handleSubmit() {
+    if (!nom.trim()) return
+    setSaving(true)
+    const heureFinal = heure.trim() || heureAuto
+    await onSave({
+      nom: nom.trim(),
+      date: date || null,
+      heure: heureFinal,
+      type_culte: typeCulte.trim() || null,
+      notes: notes.trim() || null,
+    })
+    setSaving(false)
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: '20px 20px 0 0', padding: 24, width: '100%', maxWidth: 430, margin: '0 auto', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ width: 40, height: 4, background: 'var(--border)', borderRadius: 2, margin: '0 auto 16px' }} />
+        <h3 style={{ fontFamily: 'var(--font-title)', fontSize: '1.3rem', marginBottom: 20 }}>Modifier l'événement</h3>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--texte-sec)', marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
+            Nom *
+          </label>
+          <input
+            type="text"
+            value={nom}
+            onChange={e => setNom(e.target.value)}
+            placeholder="Culte du dimanche…"
+            style={{
+              width: '100%', padding: '10px 12px',
+              border: '1px solid var(--border)', borderRadius: 8,
+              background: 'var(--card)', color: 'var(--texte)',
+              fontSize: '0.95rem', fontFamily: 'var(--font-ui)',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+          <div style={{ flex: 2 }}>
+            <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--texte-sec)', marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
+              Date
+            </label>
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 12px',
+                border: '1px solid var(--border)', borderRadius: 8,
+                background: 'var(--card)', color: 'var(--texte)',
+                fontSize: '0.95rem', fontFamily: 'var(--font-ui)',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--texte-sec)', marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
+              Heure
+            </label>
+            <input
+              type="time"
+              value={heure}
+              onChange={e => setHeure(e.target.value)}
+              placeholder={heureAuto}
+              style={{
+                width: '100%', padding: '10px 12px',
+                border: '1px solid var(--border)', borderRadius: 8,
+                background: 'var(--card)', color: 'var(--texte)',
+                fontSize: '0.95rem', fontFamily: 'var(--font-ui)',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </div>
+        {!heure && (
+          <p style={{ fontSize: '0.72rem', color: 'var(--texte-ter)', marginTop: -10, marginBottom: 14, fontStyle: 'italic' }}>
+            Si laissé vide, l'heure sera fixée à {heureAuto} ({date && new Date(date).getDay() === 0 ? 'dimanche' : 'jour de semaine'}).
+          </p>
+        )}
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--texte-sec)', marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
+            Type de culte
+          </label>
+          <input
+            type="text"
+            value={typeCulte}
+            onChange={e => setTypeCulte(e.target.value)}
+            placeholder="Culte du soir, répétition, concert…"
+            style={{
+              width: '100%', padding: '10px 12px',
+              border: '1px solid var(--border)', borderRadius: 8,
+              background: 'var(--card)', color: 'var(--texte)',
+              fontSize: '0.95rem', fontFamily: 'var(--font-ui)',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: 'block', fontSize: '0.78rem', color: 'var(--texte-sec)', marginBottom: 6, fontFamily: 'var(--font-ui)' }}>
+            Notes
+          </label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="Notes éventuelles…"
+            rows={3}
+            style={{
+              width: '100%', padding: '10px 12px',
+              border: '1px solid var(--border)', borderRadius: 8,
+              background: 'var(--card)', color: 'var(--texte)',
+              fontSize: '0.9rem', fontFamily: 'var(--font-ui)',
+              boxSizing: 'border-box', resize: 'vertical',
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            className="btn btn-outline"
+            onClick={onClose}
+            disabled={saving}
+            style={{ flex: 1 }}
+          >
+            Annuler
+          </button>
+          <button
+            className="btn"
+            onClick={handleSubmit}
+            disabled={saving || !nom.trim()}
+            style={{
+              flex: 1,
+              background: 'var(--bleu-principal)',
+              color: '#fff',
+              opacity: (saving || !nom.trim()) ? 0.5 : 1,
+            }}
+          >
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
