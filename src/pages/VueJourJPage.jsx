@@ -201,7 +201,6 @@ export default function VueJourJPage() {
           <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: night.text }}>{event?.nom}</p>
           <p style={{ fontSize: '0.72rem', color: night.textSec, marginTop: 1 }}>
             {event?.date && new Date(event.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            {event?.lead && ` · ${event.lead}`}
             {` · ${setlist.length} chant${setlist.length !== 1 ? 's' : ''}`}
           </p>
         </div>
@@ -442,7 +441,7 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
           )}
           {ec.bpm_jour && <span style={{ fontSize: '0.75rem', color: night.textSec }}>{ec.bpm_jour} BPM</span>}
           {song.categorie && <span style={{ fontSize: '0.75rem', color: night.textSec }}>{song.categorie}</span>}
-          {ec.lead_jour && <span style={{ fontSize: '0.75rem', color: night.textSec }}>Lead : {ec.lead_jour}</span>}
+          {ec.lead && <span style={{ fontSize: '0.8rem', color: night.accent, fontWeight: 500 }}>🎤 {ec.lead}</span>}
         </div>
         {ec.notes && (
           <p style={{ marginTop: 8, fontSize: '0.8rem', color: night.textSec, fontStyle: 'italic', background: 'rgba(75,191,232,0.07)', padding: '6px 10px', borderRadius: 8, borderLeft: `2px solid ${night.accent}` }}>
