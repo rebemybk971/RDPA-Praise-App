@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
@@ -124,6 +125,23 @@ export default function EvenementDetailPage() {
     toast('Soliste enregistré ✓')
   }
 
+  async function onDragEnd(result) {
+    if (!result.destination) return
+    if (result.destination.index === result.source.index) return
+
+    const newSetlist = Array.from(setlist)
+    const [moved] = newSetlist.splice(result.source.index, 1)
+    newSetlist.splice(result.destination.index, 0, moved)
+
+    setSetlist(newSetlist)
+
+    await Promise.all(
+      newSetlist.map((ec, i) =>
+        supabase.from('evenement_chants').update({ ordre: i + 1 }).eq('id', ec.id)
+      )
+    )
+  }
+
   async function saveEvent(updated) {
     try {
       const { error } = await supabase
@@ -224,31 +242,64 @@ export default function EvenementDetailPage() {
           <p>Aucun chant dans cette setlist.<br/>Appuyez sur ＋ pour en ajouter.</p>
         </div>
       ) : (
-        setlist.map((ec, i) => (
-          <div key={ec.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--texte-ter)', minWidth: 20, textAlign: 'center' }}>{i + 1}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontFamily: 'var(--font-title)', fontSize: '1rem', fontWeight: 600, color: 'var(--texte)' }}>{ec.chants?.titre}</p>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
-                  {ec.chants?.categorie && <span className="cat-badge" style={{ ...catStyle(ec.chants.categorie), fontSize: '0.65rem', padding: '2px 8px' }}>{ec.chants.categorie}</span>}
-                  {ec.tonalite_jour && <span style={{ fontSize: '0.75rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>{ec.tonalite_jour}</span>}
-                </div>
-              </div>
-              {canEdit && (
-                <button onClick={() => removeSong(ec.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--texte-ter)', fontSize: '1rem', padding: 4 }}>✕</button>
-              )}
-            </div>
+        <DragDropContext onDragEnd={canEdit ? onDragEnd : () => {}}>
+          <Droppable droppableId="setlist">
+            {(provided) => (
+              <div ref={provided.innerRef} {...provided.droppableProps}>
+                {setlist.map((ec, i) => (
+                  <Draggable key={ec.id} draggableId={ec.id} index={i} isDragDisabled={!canEdit}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className="card"
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
+                          opacity: snapshot.isDragging ? 0.7 : 1,
+                          boxShadow: snapshot.isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : undefined,
+                          ...provided.draggableProps.style,
+                        }}
+                      >
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          {/* Poignée drag */}
+                          {canEdit && (
+                            <span
+                              {...provided.dragHandleProps}
+                              style={{ cursor: 'grab', color: 'var(--texte-ter)', fontSize: '1rem', padding: '0 2px', lineHeight: 1, userSelect: 'none' }}
+                              title="Déplacer"
+                            >⠿</span>
+                          )}
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--texte-ter)', minWidth: 20, textAlign: 'center' }}>{i + 1}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontFamily: 'var(--font-title)', fontSize: '1rem', fontWeight: 600, color: 'var(--texte)' }}>{ec.chants?.titre}</p>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                              {ec.chants?.categorie && <span className="cat-badge" style={{ ...catStyle(ec.chants.categorie), fontSize: '0.65rem', padding: '2px 8px' }}>{ec.chants.categorie}</span>}
+                              {ec.tonalite_jour && <span style={{ fontSize: '0.75rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>{ec.tonalite_jour}</span>}
+                            </div>
+                          </div>
+                          {canEdit && (
+                            <button onClick={() => removeSong(ec.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--texte-ter)', fontSize: '1rem', padding: 4 }}>✕</button>
+                          )}
+                        </div>
 
-            {/* Sélecteur soliste inline */}
-            <SoloistePicker
-              ec={ec}
-              membres={membres}
-              canEdit={canEdit}
-              onChange={updateLead}
-            />
-          </div>
-        ))
+                        {/* Sélecteur soliste inline */}
+                        <SoloistePicker
+                          ec={ec}
+                          membres={membres}
+                          canEdit={canEdit}
+                          onChange={updateLead}
+                        />
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
 
       {canEdit && (
