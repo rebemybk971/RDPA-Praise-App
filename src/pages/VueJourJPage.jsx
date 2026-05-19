@@ -48,21 +48,31 @@ function parseParolesBlocs(texte) {
 }
 
 // Construit les blocs d'affichage depuis blocs_custom (JSON) ou les blocs originaux
+// Enrichit chaque bloc avec ses lignes d'accords (pour l'affichage syllabique)
 function buildDisplayBlocs(song, blocsCustomJson) {
   const originaux = parseParolesBlocs(song?.paroles || '')
+  const accordsOriginaux = parseParolesBlocs(song?.accords || '')
+
+  let blocs
   if (!blocsCustomJson) {
-    return originaux.map((b, i) => ({ ...b, srcIdx: i, uid: `orig-${i}` }))
+    blocs = originaux.map((b, i) => ({ ...b, srcIdx: i, uid: `orig-${i}` }))
+  } else {
+    try {
+      const custom = JSON.parse(blocsCustomJson)
+      blocs = custom.map((c, pos) => {
+        const src = originaux[c.blockIdx]
+        if (!src) return null
+        return { ...src, nom: c.label || src.nom, srcIdx: c.blockIdx, uid: `custom-${pos}-${c.blockIdx}` }
+      }).filter(Boolean)
+    } catch {
+      blocs = originaux.map((b, i) => ({ ...b, srcIdx: i, uid: `orig-${i}` }))
+    }
   }
-  try {
-    const custom = JSON.parse(blocsCustomJson)
-    return custom.map((c, pos) => {
-      const src = originaux[c.blockIdx]
-      if (!src) return null
-      return { ...src, nom: c.label || src.nom, srcIdx: c.blockIdx, uid: `custom-${pos}-${c.blockIdx}` }
-    }).filter(Boolean)
-  } catch {
-    return originaux.map((b, i) => ({ ...b, srcIdx: i, uid: `orig-${i}` }))
-  }
+
+  return blocs.map(b => ({
+    ...b,
+    accordsLignes: accordsOriginaux[b.srcIdx]?.lignes || [],
+  }))
 }
 
 const MEDLEY_COLORS = ['#4BBFE8', '#A78BD9', '#4a9a5a', '#E8924B', '#B8972A', '#E05A7A']
@@ -640,13 +650,6 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
         )}
       </div>
 
-      {/* Accords */}
-      {showAccords && song.accords && (
-        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '12px 14px', marginBottom: 16, border: `1px solid ${night.border}` }}>
-          <p style={{ fontSize: '0.65rem', color: night.textTer, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Accords</p>
-          <pre style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.82rem', color: night.text, whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>{song.accords}</pre>
-        </div>
-      )}
       {showAccords && !song.accords && (
         <p style={{ fontSize: '0.78rem', color: night.textTer, fontStyle: 'italic', marginBottom: 16 }}>Aucune grille renseignée.</p>
       )}
@@ -695,22 +698,39 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
                         </div>
 
                         {/* Lignes du bloc */}
-                        {bloc.lignes.map((ligne, li) => (
-                          <ParolesLine
-                            key={li}
-                            line={ligne.text}
-                            lineIdx={ligne.originalIdx}
-                            lineAnnotations={songAnnotations.filter(a => a.ligne_index === ligne.originalIdx)}
-                            night={night}
-                            onLongPress={onLineLongPress}
-                            openBubbles={openBubbles}
-                            onToggleBubble={onToggleBubble}
-                            onDeleteAnnotation={onDeleteAnnotation}
-                            currentUserId={currentUserId}
-                            ecId={ec.id}
-                            readingMode={readingMode}
-                          />
-                        ))}
+                        {bloc.lignes.map((ligne, li) => {
+                          const accordLigne = bloc.accordsLignes?.[li]?.text || ''
+                          return (
+                            <div key={li}>
+                              {showAccords && accordLigne.trim() && (
+                                <p style={{
+                                  fontFamily: 'DM Mono, monospace',
+                                  fontSize: '0.78rem',
+                                  color: night.accent,
+                                  whiteSpace: 'pre',
+                                  lineHeight: 1.2,
+                                  marginBottom: 1,
+                                  userSelect: 'text',
+                                }}>
+                                  {accordLigne}
+                                </p>
+                              )}
+                              <ParolesLine
+                                line={ligne.text}
+                                lineIdx={ligne.originalIdx}
+                                lineAnnotations={songAnnotations.filter(a => a.ligne_index === ligne.originalIdx)}
+                                night={night}
+                                onLongPress={onLineLongPress}
+                                openBubbles={openBubbles}
+                                onToggleBubble={onToggleBubble}
+                                onDeleteAnnotation={onDeleteAnnotation}
+                                currentUserId={currentUserId}
+                                ecId={ec.id}
+                                readingMode={readingMode}
+                              />
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </Draggable>
