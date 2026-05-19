@@ -33,6 +33,18 @@ function parseParoles(texte) {
   return blocs
 }
 
+// Retourne un dictionnaire { nomBloc → accords } à partir du champ accords stocké en base
+function parseAccordsMap(texte) {
+  if (!texte || !texte.trim()) return {}
+  const regex = /\[([^\]]+)\]\n?([\s\S]*?)(?=\n\[|$)/g
+  const map = {}
+  let match
+  while ((match = regex.exec(texte)) !== null) {
+    map[match[1].trim()] = match[2].trim()
+  }
+  return map
+}
+
 export default function AddSongPage() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -54,8 +66,9 @@ export default function AddSongPage() {
   })
 
   const [paroles, setParoles] = useState([
-    { nom: 'Couplet 1', contenu: '' }
+    { nom: 'Couplet 1', contenu: '', accords: '' }
   ])
+  const [showAccordsInput, setShowAccordsInput] = useState(false)
 
   const [pupitres, setPupitres] = useState({
     soprano: '', alto: '', tenor: '', basse: '',
@@ -98,7 +111,11 @@ export default function AddSongPage() {
         tonalite: data.tonalite || 'Do',
         bpm: data.bpm || 80,
       })
-      setParoles(parseParoles(data.paroles))
+      const blocsParoles = parseParoles(data.paroles)
+      const accordsMap = parseAccordsMap(data.accords)
+      const blocsAvecAccords = blocsParoles.map(b => ({ ...b, accords: accordsMap[b.nom] || '' }))
+      setParoles(blocsAvecAccords)
+      if (blocsAvecAccords.some(b => b.accords)) setShowAccordsInput(true)
       setPupitres({
         soprano: data.pupitre_soprano || '',
         alto: data.pupitre_alto || '',
@@ -128,7 +145,7 @@ export default function AddSongPage() {
   }
 
   function ajouterBloc() {
-    setParoles(prev => [...prev, { nom: 'Couplet ' + (prev.length + 1), contenu: '' }])
+    setParoles(prev => [...prev, { nom: 'Couplet ' + (prev.length + 1), contenu: '', accords: '' }])
   }
 
   function supprimerBloc(index) {
@@ -198,6 +215,10 @@ export default function AddSongPage() {
       .map(b => `[${b.nom}]\n${b.contenu}`)
       .join('\n\n')
 
+    const accordsTexte = paroles.some(b => b.accords?.trim())
+      ? paroles.filter(b => b.accords?.trim()).map(b => `[${b.nom}]\n${b.accords}`).join('\n\n')
+      : null
+
     const bpmFinal = infos.bpm === '' || infos.bpm === null || isNaN(Number(infos.bpm))
       ? 80
       : Number(infos.bpm)
@@ -209,6 +230,7 @@ export default function AddSongPage() {
       tonalite: infos.tonalite || null,
       bpm: bpmFinal,
       paroles: parolesTexte || null,
+      accords: accordsTexte,
       ...Object.fromEntries(
         PUPITRES.map(p => [`pupitre_${p}`, pupitres[p].trim() || null])
       )
@@ -349,12 +371,20 @@ export default function AddSongPage() {
       {/* ÉTAPE 2 — Paroles */}
       {etape === 2 && (
         <div>
-          <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: '13px', color: 'var(--color-text-secondary, #555)' }}>Blocs de paroles</span>
-            <label style={{ ...styles.boutonSecondaire, display: 'inline-block', cursor: 'pointer', fontSize: '13px' }}>
-              {importEnCours ? '⏳ Import...' : '📄 Importer un fichier'}
-              <input type="file" accept=".pdf,.txt" onChange={importerFichier} style={{ display: 'none' }} />
-            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setShowAccordsInput(v => !v)}
+                style={{ ...styles.boutonSecondaire, fontSize: '13px', background: showAccordsInput ? '#EEF4F8' : 'transparent', padding: '6px 12px' }}
+              >
+                {showAccordsInput ? '♩ Masquer accords' : '♩ Saisir les accords'}
+              </button>
+              <label style={{ ...styles.boutonSecondaire, display: 'inline-block', cursor: 'pointer', fontSize: '13px' }}>
+                {importEnCours ? '⏳ Import...' : '📄 Importer'}
+                <input type="file" accept=".pdf,.txt" onChange={importerFichier} style={{ display: 'none' }} />
+              </label>
+            </div>
           </div>
           {erreur && <div style={styles.erreur}>{erreur}</div>}
           {paroles.map((bloc, i) => (
@@ -373,6 +403,14 @@ export default function AddSongPage() {
                   <button onClick={() => supprimerBloc(i)} style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px' }}>✕</button>
                 )}
               </div>
+              {showAccordsInput && (
+                <textarea
+                  value={bloc.accords}
+                  onChange={e => modifierBloc(i, 'accords', e.target.value)}
+                  placeholder="Accords (alignés avec les paroles)&#10;Ex : G    Am   F    C"
+                  style={{ ...styles.textarea, fontFamily: 'DM Mono, monospace', fontSize: '0.82rem', minHeight: '64px', lineHeight: '1.7', marginBottom: '4px', background: '#EEF4F8', color: '#1A5E8A' }}
+                />
+              )}
               <textarea style={styles.textarea} value={bloc.contenu} onChange={e => modifierBloc(i, 'contenu', e.target.value)} placeholder="Paroles..." />
             </div>
           ))}
