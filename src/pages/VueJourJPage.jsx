@@ -65,6 +65,50 @@ function buildDisplayBlocs(song, blocsCustomJson) {
   }
 }
 
+const MEDLEY_COLORS = ['#4BBFE8', '#A78BD9', '#4a9a5a', '#E8924B', '#B8972A', '#E05A7A']
+
+function buildInitialMedleyBlocs(setlist, blocsEtat) {
+  const result = []
+  let pos = 0
+  for (const ec of setlist) {
+    const blocs = blocsEtat[ec.id]?.blocs || []
+    for (const bloc of blocs) {
+      result.push({
+        ec_id: ec.id,
+        srcIdx: bloc.srcIdx,
+        label: bloc.nom,
+        uid: `med-${pos++}-${ec.id}-${bloc.srcIdx}`,
+        lignes: bloc.lignes,
+        chantTitre: ec.chants?.titre || '—',
+      })
+    }
+  }
+  return result
+}
+
+function buildMedleyBlocsFromJson(json, setlist) {
+  try {
+    const saved = JSON.parse(json)
+    return saved.map((item, pos) => {
+      const ec = setlist.find(e => e.id === item.ec_id)
+      if (!ec) return null
+      const originaux = parseParolesBlocs(ec.chants?.paroles || '')
+      const src = originaux[item.srcIdx]
+      if (!src) return null
+      return {
+        ec_id: item.ec_id,
+        srcIdx: item.srcIdx,
+        label: item.label || src.nom,
+        uid: `med-${pos}-${item.ec_id}-${item.srcIdx}`,
+        lignes: src.lignes,
+        chantTitre: ec.chants?.titre || '—',
+      }
+    }).filter(Boolean)
+  } catch {
+    return null
+  }
+}
+
 export default function VueJourJPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -78,9 +122,14 @@ export default function VueJourJPage() {
   const [contextMenu, setContextMenu] = useState(null)
   const [openBubbles, setOpenBubbles] = useState({})
   const [readingMode, setReadingMode] = useState(false)
-  const [blocsEtat, setBlocsEtat] = useState({}) // { [ecId]: { blocs, modifie, saving } }
-  const [confirmSave, setConfirmSave] = useState(null) // ecId | null
+  const [blocsEtat, setBlocsEtat] = useState({}) // { [ecId]: { blocs, history, modifie, saving } }
+  const [confirmSave, setConfirmSave] = useState(null) // ecId | 'medley' | null
   const [toastMsg, setToastMsg] = useState('')
+  const [medleyMode, setMedleyMode] = useState(false)
+  const [medleyBlocs, setMedleyBlocs] = useState([])
+  const [medleyModifie, setMedleyModifie] = useState(false)
+  const [medleySaving, setMedleySaving] = useState(false)
+  const [medleyHistory, setMedleyHistory] = useState([])
 
   function toast(msg) { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000) }
 
@@ -206,6 +255,61 @@ export default function VueJourJPage() {
     setConfirmSave(null)
   }
 
+  function toggleMedleyMode() {
+    if (!medleyMode) {
+      const blocs = event?.medley_blocs
+        ? (buildMedleyBlocsFromJson(event.medley_blocs, setlist) || buildInitialMedleyBlocs(setlist, blocsEtat))
+        : buildInitialMedleyBlocs(setlist, blocsEtat)
+      setMedleyBlocs(blocs)
+      setMedleyModifie(false)
+      setMedleyHistory([])
+    }
+    setMedleyMode(v => !v)
+  }
+
+  function handleMedleyChange(newBlocs) {
+    setMedleyHistory(h => [...h, medleyBlocs].slice(-20))
+    setMedleyBlocs(newBlocs)
+    setMedleyModifie(true)
+  }
+
+  function handleMedleyUndo() {
+    if (!medleyHistory.length) return
+    const newHistory = [...medleyHistory]
+    const prev = newHistory.pop()
+    setMedleyHistory(newHistory)
+    setMedleyBlocs(prev)
+    setMedleyModifie(newHistory.length > 0)
+  }
+
+  function handleMedleyReset() {
+    setMedleyHistory(h => [...h, medleyBlocs].slice(-20))
+    const blocs = event?.medley_blocs
+      ? (buildMedleyBlocsFromJson(event.medley_blocs, setlist) || buildInitialMedleyBlocs(setlist, blocsEtat))
+      : buildInitialMedleyBlocs(setlist, blocsEtat)
+    setMedleyBlocs(blocs)
+    setMedleyModifie(true)
+  }
+
+  async function handleMedleySave() {
+    setMedleySaving(true)
+    const toSave = medleyBlocs.map(b => ({ ec_id: b.ec_id, srcIdx: b.srcIdx, label: b.label }))
+    const { error } = await supabase
+      .from('evenements')
+      .update({ medley_blocs: JSON.stringify(toSave) })
+      .eq('id', id)
+    if (error) {
+      toast('⚠️ Erreur lors de la sauvegarde')
+    } else {
+      toast('Médley enregistré ✓')
+      setEvent(ev => ({ ...ev, medley_blocs: JSON.stringify(toSave) }))
+      setMedleyHistory([])
+      setMedleyModifie(false)
+    }
+    setMedleySaving(false)
+    setConfirmSave(null)
+  }
+
   async function saveAnnotation(ecId, lineIdx, niveau, type, contenu) {
     if (!user || !contenu.trim()) return
     try {
@@ -293,12 +397,42 @@ export default function VueJourJPage() {
         >
           ♩ Accords
         </button>
+        {canEdit && (
+          <button
+            onClick={toggleMedleyMode}
+            title={medleyMode ? 'Revenir à la vue normale' : 'Mode médley'}
+            style={{ background: medleyMode ? '#A78BD9' : night.surface, color: medleyMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '7px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s', flexShrink: 0 }}
+          >
+            {medleyMode ? '≡ Normal' : '∞ Médley'}
+          </button>
+        )}
         <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>{icon}</button>
       </div>
 
       {/* Setlist */}
       <div style={{ padding: '0 0 140px' }}>
-        {setlist.map((ec, i) => (
+        {medleyMode ? (
+          <MedleyView
+            blocs={medleyBlocs}
+            setlist={setlist}
+            night={night}
+            canEdit={canEdit}
+            showAccords={showAccords}
+            onDragEnd={(result) => {
+              if (!result.destination || result.destination.index === result.source.index) return
+              const newBlocs = Array.from(medleyBlocs)
+              const [moved] = newBlocs.splice(result.source.index, 1)
+              newBlocs.splice(result.destination.index, 0, moved)
+              handleMedleyChange(newBlocs)
+            }}
+            onDuplique={(bi) => {
+              const bloc = medleyBlocs[bi]
+              const copie = { ...bloc, label: `${bloc.label} (répétition)`, uid: `dup-med-${Date.now()}-${bi}` }
+              handleMedleyChange([...medleyBlocs.slice(0, bi + 1), copie, ...medleyBlocs.slice(bi + 1)])
+            }}
+            onRetirer={(bi) => handleMedleyChange(medleyBlocs.filter((_, i) => i !== bi))}
+          />
+        ) : setlist.map((ec, i) => (
           <SongBlock
             key={ec.id}
             ec={ec}
@@ -329,15 +463,18 @@ export default function VueJourJPage() {
         />
       )}
 
-      {/* Modale de confirmation sauvegarde blocs */}
+      {/* Modale de confirmation sauvegarde */}
       {confirmSave && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: night.surface, borderRadius: 16, padding: 24, maxWidth: 340, width: '100%', border: `1px solid ${night.border}` }}>
             <h3 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.2rem', marginBottom: 10, color: night.text }}>
-              Enregistrer l'ordre des blocs ?
+              {confirmSave === 'medley' ? 'Enregistrer le médley ?' : "Enregistrer l'ordre des blocs ?"}
             </h3>
             <p style={{ fontSize: '0.85rem', color: night.textSec, lineHeight: 1.5, marginBottom: 20 }}>
-              Cet ordre sera utilisé pour cet événement uniquement. Le chant original ne sera pas modifié.
+              {confirmSave === 'medley'
+                ? "Cet ordre de médley sera utilisé pour cet événement. Les chants originaux ne seront pas modifiés."
+                : "Cet ordre sera utilisé pour cet événement uniquement. Le chant original ne sera pas modifié."
+              }
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button
@@ -347,8 +484,8 @@ export default function VueJourJPage() {
                 Annuler
               </button>
               <button
-                onClick={() => handleSaveBlocs(confirmSave)}
-                style={{ flex: 1, background: night.accent, border: 'none', color: '#fff', borderRadius: 10, padding: '10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.85rem', fontWeight: 600 }}
+                onClick={() => confirmSave === 'medley' ? handleMedleySave() : handleSaveBlocs(confirmSave)}
+                style={{ flex: 1, background: confirmSave === 'medley' ? '#A78BD9' : night.accent, border: 'none', color: '#fff', borderRadius: 10, padding: '10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: '0.85rem', fontWeight: 600 }}
               >
                 Confirmer
               </button>
@@ -407,6 +544,32 @@ export default function VueJourJPage() {
           )
         })
       }
+
+      {/* Barre fixe médley */}
+      {canEdit && medleyMode && medleyModifie && (
+        <div style={{
+          position: 'fixed', bottom: 48, left: 0, right: 0,
+          background: '#1e1a30', borderTop: '1px solid #A78BD9',
+          padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8, zIndex: 60,
+          boxShadow: '0 -4px 16px rgba(0,0,0,0.35)',
+        }}>
+          <span style={{ flex: 1, fontSize: '0.78rem', color: night.textSec }}>Médley</span>
+          {medleyHistory.length > 0 && (
+            <button onClick={handleMedleyUndo} title="Annuler le dernier mouvement"
+              style={{ background: 'none', border: `1px solid ${night.border}`, color: night.textSec, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '1rem', flexShrink: 0, lineHeight: 1 }}>
+              ↩
+            </button>
+          )}
+          <button onClick={handleMedleyReset} title="Réinitialiser"
+            style={{ background: 'none', border: `1px solid ${night.border}`, color: night.textSec, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', flexShrink: 0 }}>
+            ⟳
+          </button>
+          <button onClick={() => setConfirmSave('medley')} disabled={medleySaving}
+            style={{ background: '#A78BD9', border: 'none', color: '#fff', borderRadius: 8, padding: '6px 14px', cursor: medleySaving ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 600, opacity: medleySaving ? 0.6 : 1, flexShrink: 0 }}>
+            {medleySaving ? '…' : '💾 Enregistrer'}
+          </button>
+        </div>
+      )}
 
       {/* Légende */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: night.bg, borderTop: `1px solid ${night.border}`, padding: '8px 20px', display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -739,5 +902,97 @@ function MenuButton({ icon, label, color, onClick }) {
       <span style={{ color, fontSize: '1rem', width: 16, textAlign: 'center' }}>{icon}</span>
       {label}
     </button>
+  )
+}
+
+function MedleyView({ blocs, setlist, night, canEdit, showAccords, onDragEnd, onDuplique, onRetirer }) {
+  const songColorMap = {}
+  setlist.forEach((ec, i) => { songColorMap[ec.id] = MEDLEY_COLORS[i % MEDLEY_COLORS.length] })
+
+  if (blocs.length === 0) {
+    return (
+      <div style={{ padding: 32, textAlign: 'center', color: night.textTer, fontSize: '0.9rem' }}>
+        Aucun bloc — réinitialisez pour recharger les blocs de la setlist.
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: '16px 0' }}>
+      <p style={{ padding: '0 20px 12px', fontSize: '0.72rem', color: night.textTer, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        {blocs.length} bloc{blocs.length !== 1 ? 's' : ''} — glissez pour réorganiser entre les chants
+      </p>
+      <DragDropContext onDragEnd={canEdit ? onDragEnd : () => {}}>
+        <Droppable droppableId="medley">
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps}>
+              {blocs.map((bloc, bi) => {
+                const color = songColorMap[bloc.ec_id] || night.accent
+                return (
+                  <Draggable key={bloc.uid} draggableId={bloc.uid} index={bi} isDragDisabled={!canEdit}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        style={{
+                          borderBottom: `1px solid ${night.border}`,
+                          padding: '16px 20px',
+                          opacity: snapshot.isDragging ? 0.75 : 1,
+                          background: snapshot.isDragging ? night.surface : 'transparent',
+                          ...provided.draggableProps.style,
+                        }}
+                      >
+                        {/* En-tête bloc médley */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                          {canEdit && (
+                            <span
+                              {...provided.dragHandleProps}
+                              style={{ cursor: 'grab', color: night.textTer, fontSize: '0.9rem', userSelect: 'none', flexShrink: 0 }}
+                            >⠿</span>
+                          )}
+                          <span style={{ fontSize: '0.6rem', color, background: `${color}22`, border: `1px solid ${color}55`, borderRadius: 6, padding: '2px 7px', fontWeight: 600, letterSpacing: '0.04em', flexShrink: 0, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {bloc.chantTitre}
+                          </span>
+                          <span style={{ fontSize: '0.65rem', color: night.accent, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>
+                            {bloc.label}
+                          </span>
+                          {canEdit && (
+                            <>
+                              <button
+                                onClick={() => onDuplique(bi)}
+                                style={{ marginLeft: 'auto', background: 'none', border: `1px solid ${night.border}`, cursor: 'pointer', color: night.textTer, fontSize: '0.72rem', padding: '1px 7px', borderRadius: 6, fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6, flexShrink: 0 }}
+                                title="Dupliquer ce bloc"
+                              >⊕</button>
+                              <button
+                                onClick={() => onRetirer(bi)}
+                                style={{ background: 'none', border: `1px solid ${night.border}`, cursor: 'pointer', color: '#e05a7a', fontSize: '0.72rem', padding: '1px 7px', borderRadius: 6, fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6, flexShrink: 0 }}
+                                title="Retirer ce bloc du médley"
+                              >✕</button>
+                            </>
+                          )}
+                        </div>
+                        {/* Paroles */}
+                        {bloc.lignes?.map((ligne, li) => (
+                          <p key={li} style={{
+                            fontFamily: 'Cormorant Garamond, serif',
+                            fontSize: '1.4rem',
+                            lineHeight: 1.5,
+                            color: ligne.text.trim() === '' ? 'transparent' : night.text,
+                            minHeight: '1.4rem',
+                          }}>
+                            {ligne.text || '\u00A0'}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </Draggable>
+                )
+              })}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
+    </div>
   )
 }
