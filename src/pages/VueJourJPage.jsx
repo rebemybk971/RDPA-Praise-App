@@ -705,7 +705,7 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
                               {showAccords && accordLigne.trim() && (
                                 <p style={{
                                   fontFamily: 'DM Mono, monospace',
-                                  fontSize: '0.78rem',
+                                  fontSize: '0.9rem',
                                   color: night.accent,
                                   whiteSpace: 'pre',
                                   lineHeight: 1.2,
@@ -727,6 +727,7 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
                                 currentUserId={currentUserId}
                                 ecId={ec.id}
                                 readingMode={readingMode}
+                                monoFont={showAccords}
                               />
                             </div>
                           )
@@ -746,7 +747,7 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
   )
 }
 
-function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId, ecId, readingMode }) {
+function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId, ecId, readingMode, monoFont }) {
   const [longPressTimer, setLongPressTimer] = useState(null)
 
   function handleTouchStart(e) {
@@ -775,11 +776,12 @@ function ParolesLine({ line, lineIdx, lineAnnotations, night, onLongPress, openB
     >
       <p style={{
         flex: 1,
-        fontFamily: 'Cormorant Garamond, serif',
-        fontSize: '1.5rem',
+        fontFamily: monoFont ? 'DM Mono, monospace' : 'Cormorant Garamond, serif',
+        fontSize: monoFont ? '0.9rem' : '1.5rem',
         lineHeight: 1.5,
+        whiteSpace: monoFont ? 'pre' : 'normal',
         color: line.trim() === '' ? 'transparent' : night.text,
-        minHeight: '1.5rem',
+        minHeight: monoFont ? '0.9rem' : '1.5rem',
         userSelect: 'text',
       }}>
         {line || '\u00A0'}
