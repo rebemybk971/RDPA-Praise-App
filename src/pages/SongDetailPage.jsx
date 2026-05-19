@@ -3,6 +3,23 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
+function parseBlocsAvecAccords(parolesTexte, accordsTexte) {
+  const parseBlocs = (texte) => {
+    if (!texte?.trim()) return []
+    const regex = /\[([^\]]+)\]\n?([\s\S]*?)(?=\n\[|$)/g
+    const blocs = []
+    let match
+    while ((match = regex.exec(texte)) !== null) {
+      blocs.push({ nom: match[1].trim(), lignes: match[2].trim().split('\n') })
+    }
+    return blocs.length ? blocs : [{ nom: 'Paroles', lignes: texte.trim().split('\n') }]
+  }
+  const blocsParoles = parseBlocs(parolesTexte)
+  const blocsAccords = parseBlocs(accordsTexte || '')
+  const accordsMap = Object.fromEntries(blocsAccords.map(b => [b.nom, b.lignes]))
+  return blocsParoles.map(b => ({ ...b, accordsLignes: accordsMap[b.nom] || [] }))
+}
+
 function catStyle(cat) {
   const k = (cat || '').toLowerCase()
   const map = {
@@ -25,6 +42,7 @@ export default function SongDetailPage() {
   const [tab, setTab] = useState('paroles')
   const [historique, setHistorique] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showAccords, setShowAccords] = useState(false)
 
   useEffect(() => {
     fetchSong()
@@ -110,15 +128,35 @@ export default function SongDetailPage() {
       {tab === 'paroles' && (
         <div>
           {song.accords && (
-            <div className="card" style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: '0.75rem', color: 'var(--texte-ter)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accords</p>
-              <pre style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--texte)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{song.accords}</pre>
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowAccords(v => !v)}
+                style={{ background: showAccords ? 'var(--bleu-principal)' : 'var(--card)', color: showAccords ? '#fff' : 'var(--texte-sec)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'var(--font-ui)' }}
+              >
+                ♩ Accords
+              </button>
             </div>
           )}
           {song.paroles ? (
-            <div style={{ fontFamily: 'var(--font-title)', fontSize: '1.1rem', lineHeight: 2, color: 'var(--texte)', whiteSpace: 'pre-wrap' }}>
-              {song.paroles}
-            </div>
+            showAccords
+              ? parseBlocsAvecAccords(song.paroles, song.accords).map((bloc, bi) => (
+                  <div key={bi} style={{ marginBottom: 24 }}>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--bleu-principal)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 6 }}>{bloc.nom}</p>
+                    {bloc.lignes.map((ligne, li) => (
+                      <div key={li}>
+                        {bloc.accordsLignes[li]?.trim() && (
+                          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--bleu-principal)', whiteSpace: 'pre', lineHeight: 1.2, marginBottom: 1 }}>
+                            {bloc.accordsLignes[li]}
+                          </p>
+                        )}
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--texte)', whiteSpace: 'pre', lineHeight: 1.5 }}>
+                          {ligne || '\u00A0'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              : <div style={{ fontFamily: 'var(--font-title)', fontSize: '1.1rem', lineHeight: 2, color: 'var(--texte)', whiteSpace: 'pre-wrap' }}>{song.paroles}</div>
           ) : (
             <div className="empty-state">
               <div className="emoji">📄</div>
