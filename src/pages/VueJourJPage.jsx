@@ -125,6 +125,7 @@ export default function VueJourJPage() {
         for (const ec of sl) {
           nouvelEtat[ec.id] = {
             blocs: buildDisplayBlocs(ec.chants, ec.blocs_custom),
+            history: [],
             modifie: false,
             saving: false,
           }
@@ -156,21 +157,31 @@ export default function VueJourJPage() {
   }
 
   function handleBlocsChange(ecId, newBlocs) {
-    setBlocsEtat(prev => ({
-      ...prev,
-      [ecId]: { ...prev[ecId], blocs: newBlocs, modifie: true }
-    }))
+    setBlocsEtat(prev => {
+      const cur = prev[ecId]
+      const history = [...(cur.history || []), cur.blocs].slice(-20)
+      return { ...prev, [ecId]: { ...cur, blocs: newBlocs, history, modifie: true } }
+    })
+  }
+
+  function handleBlocsUndo(ecId) {
+    setBlocsEtat(prev => {
+      const cur = prev[ecId]
+      if (!cur.history?.length) return prev
+      const history = [...cur.history]
+      const blocs = history.pop()
+      return { ...prev, [ecId]: { ...cur, blocs, history, modifie: history.length > 0 } }
+    })
   }
 
   function handleBlocsReset(ecId) {
     const ec = setlist.find(e => e.id === ecId)
     if (!ec) return
-    // Si un ordre custom était déjà sauvegardé, il faut sauvegarder le reset ; sinon, on annule juste
-    const wasCustom = !!ec.blocs_custom
-    setBlocsEtat(prev => ({
-      ...prev,
-      [ecId]: { blocs: buildDisplayBlocs(ec.chants, null), modifie: wasCustom, saving: false }
-    }))
+    setBlocsEtat(prev => {
+      const cur = prev[ecId]
+      const history = [...(cur.history || []), cur.blocs].slice(-20)
+      return { ...prev, [ecId]: { blocs: buildDisplayBlocs(ec.chants, null), history, modifie: true, saving: false } }
+    })
   }
 
   async function handleSaveBlocs(ecId) {
@@ -190,7 +201,7 @@ export default function VueJourJPage() {
       setBlocsEtat(prev => ({ ...prev, [ecId]: { ...prev[ecId], saving: false } }))
     } else {
       toast('Ordre des blocs enregistré ✓')
-      setBlocsEtat(prev => ({ ...prev, [ecId]: { ...prev[ecId], modifie: false, saving: false } }))
+      setBlocsEtat(prev => ({ ...prev, [ecId]: { ...prev[ecId], history: [], modifie: false, saving: false } }))
     }
     setConfirmSave(null)
   }
@@ -351,6 +362,7 @@ export default function VueJourJPage() {
         .filter(([, e]) => e.modifie)
         .map(([ecId, etat], idx) => {
           const ec = setlist.find(e => e.id === ecId)
+          const canUndo = (etat.history?.length || 0) > 0
           return (
             <div key={ecId} style={{
               position: 'fixed',
@@ -368,8 +380,18 @@ export default function VueJourJPage() {
               <span style={{ flex: 1, fontSize: '0.78rem', color: night.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {ec?.chants?.titre}
               </span>
+              {canUndo && (
+                <button
+                  onClick={() => handleBlocsUndo(ecId)}
+                  title="Annuler le dernier mouvement"
+                  style={{ background: 'none', border: `1px solid ${night.border}`, color: night.textSec, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '1rem', fontFamily: 'DM Sans, sans-serif', flexShrink: 0, lineHeight: 1 }}
+                >
+                  ↩
+                </button>
+              )}
               <button
                 onClick={() => handleBlocsReset(ecId)}
+                title="Réinitialiser l'ordre d'origine"
                 style={{ background: 'none', border: `1px solid ${night.border}`, color: night.textSec, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', flexShrink: 0 }}
               >
                 ⟳
