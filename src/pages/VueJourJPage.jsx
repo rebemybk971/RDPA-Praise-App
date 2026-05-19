@@ -165,9 +165,11 @@ export default function VueJourJPage() {
   function handleBlocsReset(ecId) {
     const ec = setlist.find(e => e.id === ecId)
     if (!ec) return
+    // Si un ordre custom était déjà sauvegardé, il faut sauvegarder le reset ; sinon, on annule juste
+    const wasCustom = !!ec.blocs_custom
     setBlocsEtat(prev => ({
       ...prev,
-      [ecId]: { blocs: buildDisplayBlocs(ec.chants, null), modifie: true, saving: false }
+      [ecId]: { blocs: buildDisplayBlocs(ec.chants, null), modifie: wasCustom, saving: false }
     }))
   }
 
@@ -284,7 +286,7 @@ export default function VueJourJPage() {
       </div>
 
       {/* Setlist */}
-      <div style={{ padding: '0 0 60px' }}>
+      <div style={{ padding: '0 0 140px' }}>
         {setlist.map((ec, i) => (
           <SongBlock
             key={ec.id}
@@ -300,12 +302,8 @@ export default function VueJourJPage() {
             currentUserId={user?.id}
             readingMode={readingMode}
             blocs={blocsEtat[ec.id]?.blocs || []}
-            blocsModifie={blocsEtat[ec.id]?.modifie || false}
-            blocsSaving={blocsEtat[ec.id]?.saving || false}
             canEdit={canEdit}
             onBlocsChange={(newBlocs) => handleBlocsChange(ec.id, newBlocs)}
-            onBlocsReset={() => handleBlocsReset(ec.id)}
-            onBlocsSave={() => setConfirmSave(ec.id)}
           />
         ))}
       </div>
@@ -348,6 +346,46 @@ export default function VueJourJPage() {
         </div>
       )}
 
+      {/* Barres de sauvegarde fixes (au-dessus de la légende) */}
+      {canEdit && Object.entries(blocsEtat)
+        .filter(([, e]) => e.modifie)
+        .map(([ecId, etat], idx) => {
+          const ec = setlist.find(e => e.id === ecId)
+          return (
+            <div key={ecId} style={{
+              position: 'fixed',
+              bottom: 48 + idx * 52,
+              left: 0, right: 0,
+              background: night.surface,
+              borderTop: `1px solid ${night.accent}`,
+              padding: '8px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              zIndex: 60,
+              boxShadow: '0 -4px 16px rgba(0,0,0,0.35)',
+            }}>
+              <span style={{ flex: 1, fontSize: '0.78rem', color: night.textSec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {ec?.chants?.titre}
+              </span>
+              <button
+                onClick={() => handleBlocsReset(ecId)}
+                style={{ background: 'none', border: `1px solid ${night.border}`, color: night.textSec, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', flexShrink: 0 }}
+              >
+                ⟳
+              </button>
+              <button
+                onClick={() => setConfirmSave(ecId)}
+                disabled={etat.saving}
+                style={{ background: night.accent, border: 'none', color: '#fff', borderRadius: 8, padding: '6px 14px', cursor: etat.saving ? 'not-allowed' : 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 600, opacity: etat.saving ? 0.6 : 1, flexShrink: 0 }}
+              >
+                {etat.saving ? '…' : '💾 Enregistrer'}
+              </button>
+            </div>
+          )
+        })
+      }
+
       {/* Légende */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: night.bg, borderTop: `1px solid ${night.border}`, padding: '8px 20px', display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
         {Object.entries(ANNOTATION_TYPES).map(([key, t]) => (
@@ -367,7 +405,7 @@ function LegendItem({ icon, color, label }) {
   )
 }
 
-function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId, readingMode, blocs, blocsModifie, blocsSaving, canEdit, onBlocsChange, onBlocsReset, onBlocsSave }) {
+function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongPress, openBubbles, onToggleBubble, onDeleteAnnotation, currentUserId, readingMode, blocs, canEdit, onBlocsChange }) {
   const song = ec.chants || {}
 
   function onDragEnd(result) {
@@ -492,24 +530,6 @@ function SongBlock({ ec, index, showAccords, night, songAnnotations, onLineLongP
         </DragDropContext>
       )}
 
-      {/* Barre de sauvegarde (apparaît uniquement si des blocs ont été modifiés) */}
-      {canEdit && blocsModifie && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${night.border}` }}>
-          <button
-            onClick={onBlocsReset}
-            style={{ background: 'none', border: `1px solid ${night.border}`, color: night.textSec, borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', flexShrink: 0 }}
-          >
-            ⟳ Réinitialiser
-          </button>
-          <button
-            onClick={onBlocsSave}
-            disabled={blocsSaving}
-            style={{ flex: 1, background: night.accent, border: 'none', color: '#fff', borderRadius: 8, padding: '7px 12px', cursor: blocsSaving ? 'not-allowed' : 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 600, opacity: blocsSaving ? 0.6 : 1 }}
-          >
-            {blocsSaving ? 'Enregistrement…' : '💾 Enregistrer pour cet événement'}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
