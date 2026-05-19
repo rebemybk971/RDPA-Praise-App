@@ -181,6 +181,15 @@ export default function VueJourJPage() {
         }
         setBlocsEtat(nouvelEtat)
 
+        // Si un médley est enregistré, ouvrir directement en mode médley
+        if (ev?.medley_blocs) {
+          const blocs = buildMedleyBlocsFromJson(ev.medley_blocs, sl)
+          if (blocs) {
+            setMedleyBlocs(blocs)
+            setMedleyMode(true)
+          }
+        }
+
         // Charger les annotations
         const ecIds = sl.map(ec => ec.id)
         const { data: ann, error: annError } = await supabase
@@ -397,15 +406,13 @@ export default function VueJourJPage() {
         >
           ♩ Accords
         </button>
-        {canEdit && (
-          <button
-            onClick={toggleMedleyMode}
-            title={medleyMode ? 'Revenir à la vue normale' : 'Mode médley'}
-            style={{ background: medleyMode ? '#A78BD9' : night.surface, color: medleyMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '7px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s', flexShrink: 0 }}
-          >
-            {medleyMode ? '≡ Normal' : '∞ Médley'}
-          </button>
-        )}
+        <button
+          onClick={toggleMedleyMode}
+          title={medleyMode ? 'Revenir à la vue normale' : 'Mode médley'}
+          style={{ background: medleyMode ? '#A78BD9' : night.surface, color: medleyMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '7px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s', flexShrink: 0 }}
+        >
+          {medleyMode ? '≡ Normal' : '∞ Médley'}
+        </button>
         <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>{icon}</button>
       </div>
 
