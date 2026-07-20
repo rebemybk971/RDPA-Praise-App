@@ -194,7 +194,7 @@ export default function VueJourJPage() {
         // Si un médley est enregistré, ouvrir directement en mode médley
         if (ev?.medley_blocs) {
           const blocs = buildMedleyBlocsFromJson(ev.medley_blocs, sl)
-          if (blocs) {
+          if (blocs && blocs.length > 0) {
             setMedleyBlocs(blocs)
             setMedleyMode(true)
           }
