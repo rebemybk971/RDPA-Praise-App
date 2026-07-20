@@ -64,6 +64,10 @@ function buildDisplayBlocs(song, blocsCustomJson) {
         if (!src) return null
         return { ...src, nom: c.label || src.nom, srcIdx: c.blockIdx, uid: `custom-${pos}-${c.blockIdx}` }
       }).filter(Boolean)
+      // Références périmées (paroles modifiées depuis) : revenir aux paroles actuelles
+      if (blocs.length === 0 && originaux.length > 0) {
+        blocs = originaux.map((b, i) => ({ ...b, srcIdx: i, uid: `orig-${i}` }))
+      }
     } catch {
       blocs = originaux.map((b, i) => ({ ...b, srcIdx: i, uid: `orig-${i}` }))
     }
