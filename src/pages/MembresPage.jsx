@@ -92,10 +92,14 @@ export default function MembresPage() {
     const nouveauNom = renameValue.trim()
     if (!nouveauNom || nouveauNom === m.nom) { cancelRename(); return }
     await supabase.from('membres').update({ nom: nouveauNom }).eq('id', m.id)
+    await Promise.all([
+      supabase.from('evenement_chants').update({ lead: nouveauNom }).eq('lead_id', m.id),
+      supabase.from('evenement_chants').update({ lead_2: nouveauNom }).eq('lead_id_2', m.id),
+    ])
     setRenamingId(null)
     setRenameValue('')
     fetchMembres()
-    toast('Nom mis à jour')
+    toast('Nom mis à jour, y compris dans l\'historique')
   }
 
   if (loading) return <div className="loading">Chargement…</div>
