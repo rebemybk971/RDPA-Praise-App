@@ -1,12 +1,40 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+
+const LONG_PRESS_MS = 600
+
+function useLongPress(callback) {
+  const timerRef = useRef(null)
+  const start = () => { timerRef.current = setTimeout(callback, LONG_PRESS_MS) }
+  const clear = () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  return {
+    onMouseDown: start,
+    onMouseUp: clear,
+    onMouseLeave: clear,
+    onTouchStart: start,
+    onTouchEnd: clear,
+    onTouchMove: clear,
+  }
+}
 
 const ROLES = { admin: 'Admin', editeur: 'Éditeur', lecteur: 'Lecteur' }
 const ROLE_COLORS = {
   admin:   { background: 'rgba(75,191,232,0.15)', color: '#1A7BAF' },
   editeur: { background: 'rgba(59,109,17,0.12)',  color: '#3B6D11' },
   lecteur: { background: 'var(--perle)',           color: 'var(--texte-sec)' },
+}
+
+function NomAvecAppuiLong({ m, isAdmin, onLongPress }) {
+  const longPressHandlers = useLongPress(() => onLongPress(m))
+  return (
+    <p
+      style={{ fontWeight: 500, fontSize: '0.9rem', color: 'var(--texte)', userSelect: 'none', WebkitTouchCallout: 'none' }}
+      {...(isAdmin ? longPressHandlers : {})}
+    >
+      {m.nom}
+    </p>
+  )
 }
 
 function generateToken() {
@@ -21,6 +49,8 @@ export default function MembresPage() {
   const [showInactifs, setShowInactifs] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
+  const [renamingId, setRenamingId] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
 
   useEffect(() => { fetchMembres() }, [])
 
@@ -46,6 +76,26 @@ export default function MembresPage() {
     await supabase.from('membres').update({ role: newRole }).eq('id', m.id)
     fetchMembres()
     toast(`Rôle de ${m.nom} mis à jour`)
+  }
+
+  function startRename(m) {
+    setRenamingId(m.id)
+    setRenameValue(m.nom || '')
+  }
+
+  function cancelRename() {
+    setRenamingId(null)
+    setRenameValue('')
+  }
+
+  async function saveRename(m) {
+    const nouveauNom = renameValue.trim()
+    if (!nouveauNom || nouveauNom === m.nom) { cancelRename(); return }
+    await supabase.from('membres').update({ nom: nouveauNom }).eq('id', m.id)
+    setRenamingId(null)
+    setRenameValue('')
+    fetchMembres()
+    toast('Nom mis à jour')
   }
 
   if (loading) return <div className="loading">Chargement…</div>
@@ -86,7 +136,22 @@ export default function MembresPage() {
                 {(m.nom || '?').charAt(0).toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontWeight: 500, fontSize: '0.9rem', color: 'var(--texte)' }}>{m.nom}</p>
+                {renamingId === m.id ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveRename(m); if (e.key === 'Escape') cancelRename() }}
+                      autoFocus
+                      style={{ flex: 1, fontSize: '0.9rem', padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--card)', color: 'var(--texte)', fontFamily: 'var(--font-ui)' }}
+                    />
+                    <button onClick={() => saveRename(m)} style={{ background: 'none', border: 'none', color: 'var(--bleu-principal)', cursor: 'pointer', fontSize: '1rem' }} title="Enregistrer">✓</button>
+                    <button onClick={cancelRename} style={{ background: 'none', border: 'none', color: 'var(--texte-ter)', cursor: 'pointer', fontSize: '1rem' }} title="Annuler">✕</button>
+                  </div>
+                ) : (
+                  <NomAvecAppuiLong m={m} isAdmin={isAdmin} onLongPress={startRename} />
+                )}
                 <p style={{ fontSize: '0.75rem', color: 'var(--texte-sec)', marginTop: 1 }}>{m.email || 'Sans email'}</p>
               </div>
               <span style={{ fontSize: '0.7rem', padding: '3px 9px', borderRadius: 10, flexShrink: 0, ...ROLE_COLORS[m.role] }}>
