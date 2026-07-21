@@ -286,10 +286,14 @@ export default function HistoriquePage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--texte-ter)', minWidth: 18 }}>{si + 1}</span>
                     <span style={{ flex: 1, minWidth: 120, fontFamily: 'var(--font-title)', fontSize: '0.95rem', color: 'var(--texte)' }}>{row.chants?.titre}</span>
-                    {row.tonalite_jour && <span style={{ fontSize: '0.75rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>{row.tonalite_jour}</span>}
-                    {row.chants?.categorie && <span className="cat-badge" style={{ ...catStyle(row.chants.categorie), fontSize: '0.62rem', padding: '2px 7px' }}>{row.chants.categorie}</span>}
                     {row.lead && <span style={{ fontSize: '0.78rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>🎤 {row.lead}</span>}
                   </div>
+                  {(row.tonalite_jour || row.chants?.categorie) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 28 }}>
+                      {row.tonalite_jour && <span style={{ fontSize: '0.75rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>{row.tonalite_jour}</span>}
+                      {row.chants?.categorie && <span className="cat-badge" style={{ ...catStyle(row.chants.categorie), fontSize: '0.62rem', padding: '2px 7px' }}>{row.chants.categorie}</span>}
+                    </div>
+                  )}
                   {row.lead_2 && (
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <span style={{ fontSize: '0.78rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>🎤 {row.lead_2}</span>
