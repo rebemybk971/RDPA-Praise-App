@@ -100,6 +100,16 @@ function buildInitialMedleyBlocs(setlist, blocsEtat) {
   return result
 }
 
+// Résout les blocs médley : reprend le médley enregistré s'il contient des blocs valides,
+// sinon reconstruit depuis les blocs actuels de la setlist
+function resolveMedleyBlocs(eventMedleyJson, setlist, blocsEtat) {
+  if (eventMedleyJson) {
+    const blocs = buildMedleyBlocsFromJson(eventMedleyJson, setlist)
+    if (blocs && blocs.length > 0) return blocs
+  }
+  return buildInitialMedleyBlocs(setlist, blocsEtat)
+}
+
 function buildMedleyBlocsFromJson(json, setlist) {
   try {
     const saved = JSON.parse(json)
@@ -280,9 +290,7 @@ export default function VueJourJPage() {
 
   function toggleMedleyMode() {
     if (!medleyMode) {
-      const blocs = event?.medley_blocs
-        ? (buildMedleyBlocsFromJson(event.medley_blocs, setlist) || buildInitialMedleyBlocs(setlist, blocsEtat))
-        : buildInitialMedleyBlocs(setlist, blocsEtat)
+      const blocs = resolveMedleyBlocs(event?.medley_blocs, setlist, blocsEtat)
       setMedleyBlocs(blocs)
       setMedleyModifie(false)
       setMedleyHistory([])
@@ -307,9 +315,7 @@ export default function VueJourJPage() {
 
   function handleMedleyReset() {
     setMedleyHistory(h => [...h, medleyBlocs].slice(-20))
-    const blocs = event?.medley_blocs
-      ? (buildMedleyBlocsFromJson(event.medley_blocs, setlist) || buildInitialMedleyBlocs(setlist, blocsEtat))
-      : buildInitialMedleyBlocs(setlist, blocsEtat)
+    const blocs = resolveMedleyBlocs(event?.medley_blocs, setlist, blocsEtat)
     setMedleyBlocs(blocs)
     setMedleyModifie(true)
   }
@@ -452,6 +458,7 @@ export default function VueJourJPage() {
               handleMedleyChange([...medleyBlocs.slice(0, bi + 1), copie, ...medleyBlocs.slice(bi + 1)])
             }}
             onRetirer={(bi) => handleMedleyChange(medleyBlocs.filter((_, i) => i !== bi))}
+            onReset={handleMedleyReset}
           />
         ) : setlist.map((ec, i) => (
           <SongBlock
@@ -938,14 +945,22 @@ function MenuButton({ icon, label, color, onClick }) {
   )
 }
 
-function MedleyView({ blocs, setlist, night, canEdit, showAccords, onDragEnd, onDuplique, onRetirer }) {
+function MedleyView({ blocs, setlist, night, canEdit, showAccords, onDragEnd, onDuplique, onRetirer, onReset }) {
   const songColorMap = {}
   setlist.forEach((ec, i) => { songColorMap[ec.id] = MEDLEY_COLORS[i % MEDLEY_COLORS.length] })
 
   if (blocs.length === 0) {
     return (
       <div style={{ padding: 32, textAlign: 'center', color: night.textTer, fontSize: '0.9rem' }}>
-        Aucun bloc — réinitialisez pour recharger les blocs de la setlist.
+        <p style={{ marginBottom: 16 }}>Aucun bloc — réinitialisez pour recharger les blocs de la setlist.</p>
+        {canEdit && (
+          <button
+            onClick={onReset}
+            style={{ background: night.accent, border: 'none', color: '#fff', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif', fontWeight: 600 }}
+          >
+            ⟳ Réinitialiser
+          </button>
+        )}
       </div>
     )
   }
