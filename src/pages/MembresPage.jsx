@@ -91,15 +91,26 @@ export default function MembresPage() {
   async function saveRename(m) {
     const nouveauNom = renameValue.trim()
     if (!nouveauNom || nouveauNom === m.nom) { cancelRename(); return }
-    await supabase.from('membres').update({ nom: nouveauNom }).eq('id', m.id)
-    await Promise.all([
-      supabase.from('evenement_chants').update({ lead: nouveauNom }).eq('lead_id', m.id),
-      supabase.from('evenement_chants').update({ lead_2: nouveauNom }).eq('lead_id_2', m.id),
+    const { error: errMembre } = await supabase.from('membres').update({ nom: nouveauNom }).eq('id', m.id)
+    if (errMembre) {
+      console.error('[saveRename] Erreur membres :', errMembre)
+      toast(`⚠️ Erreur nom membre : ${errMembre.message}`)
+      return
+    }
+    const [r1, r2] = await Promise.all([
+      supabase.from('evenement_chants').update({ lead: nouveauNom }).eq('lead_id', m.id).select('id'),
+      supabase.from('evenement_chants').update({ lead_2: nouveauNom }).eq('lead_id_2', m.id).select('id'),
     ])
+    console.log('[saveRename] cascade lead:', r1.data?.length ?? 0, 'lignes, erreur:', r1.error)
+    console.log('[saveRename] cascade lead_2:', r2.data?.length ?? 0, 'lignes, erreur:', r2.error)
+    if (r1.error || r2.error) {
+      toast(`⚠️ Historique non mis à jour : ${(r1.error || r2.error).message}`)
+    } else {
+      toast(`Nom mis à jour (${(r1.data?.length ?? 0) + (r2.data?.length ?? 0)} entrée(s) historique)`)
+    }
     setRenamingId(null)
     setRenameValue('')
     fetchMembres()
-    toast('Nom mis à jour, y compris dans l\'historique')
   }
 
   if (loading) return <div className="loading">Chargement…</div>
