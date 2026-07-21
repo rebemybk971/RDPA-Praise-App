@@ -31,12 +31,21 @@ Règles pour "contenu" :
 - Regroupe les paroles par section logique (couplets, refrain, pont...), sans les accords.
 - Si un refrain se répète à l'identique plusieurs fois dans le texte, ne le liste qu'une seule fois sous "Refrain".
 - Conserve les sauts de ligne (un \\n entre chaque ligne de parole).
-- Ne modifie pas les mots ni la ponctuation, corrige uniquement les sauts de ligne et les espaces superflus.
+- Ne modifie pas les mots ni la ponctuation. Tu peux normaliser les espaces multiples à l'intérieur d'une ligne de paroles en un seul espace.
 
-Règles pour "accords" :
+Règles pour "accords" (alignement précis, style OpenSong/OnSong) :
 - Si le bloc ne contient aucun accord détectable dans le texte source, mets "accords": "" (chaîne vide).
-- Si des accords sont détectés, produis une ligne d'accords par ligne de paroles correspondante (même nombre de \\n que "contenu"), avec les accords placés approximativement au-dessus du mot où ils apparaissent, en utilisant des espaces pour l'alignement (police monospace).
+- Si des accords sont détectés, produis EXACTEMENT une ligne d'accords par ligne de paroles correspondante (même nombre de \\n que "contenu", ligne vide "" si aucun accord sur cette ligne précise).
+- Pour positionner un accord, compte le nombre de caractères depuis le début de la ligne de paroles JUSQU'À la lettre au-dessus de laquelle il se trouve dans le texte source, puis place l'accord à cette même position de caractère dans la ligne d'accords (en complétant avec des espaces avant). Comme "contenu" est en police monospace identique à "accords", la position en caractères doit correspondre visuellement.
 - N'invente jamais d'accords qui ne sont pas présents dans le texte source.
+
+Exemple (texte source avec accords sur leur propre ligne au-dessus des paroles) :
+"""
+G          D          Em
+Amazing grace how sweet the sound
+"""
+Doit donner : "contenu": "Amazing grace how sweet the sound", "accords": "G          D          Em"
+(le "G" est au caractère 0 comme "Amazing", le "D" est au caractère 11 comme "how", etc. — recopie la position réelle du texte source, ne la réinvente pas).
 
 N'ajoute aucun texte en dehors du JSON.
 

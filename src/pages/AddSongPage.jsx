@@ -208,9 +208,28 @@ export default function AddSongPage() {
           }
           if (ligneCourante.length) lignes.push(ligneCourante)
 
+          // Reconstruit chaque ligne en respectant l'espacement horizontal réel du PDF
+          // (nécessaire pour préserver la position des accords au-dessus des paroles)
+          const texteAvecEspacement = (itemsLigne) => {
+            const items = [...itemsLigne].sort((a, b) => a.transform[4] - b.transform[4])
+            let texte = ''
+            let finPrecedente = null
+            for (const item of items) {
+              const debut = item.transform[4]
+              if (finPrecedente !== null) {
+                const largeurCar = item.str.length > 0 ? (item.width || 0) / item.str.length : 5
+                const nbEspaces = Math.max(1, Math.round((debut - finPrecedente) / (largeurCar || 5)))
+                texte += ' '.repeat(Math.min(nbEspaces, 20))
+              }
+              texte += item.str
+              finPrecedente = debut + (item.width || 0)
+            }
+            return texte.trimEnd()
+          }
+
           const textePage = lignes
-            .map(ligne => ligne.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim())
-            .filter(Boolean)
+            .map(texteAvecEspacement)
+            .filter(l => l.trim())
             .join('\n')
 
           if (textePage) texteComplet += textePage + '\n\n'
@@ -507,7 +526,14 @@ export default function AddSongPage() {
                               style={{ ...styles.textarea, fontFamily: 'DM Mono, monospace', fontSize: '0.82rem', minHeight: '64px', lineHeight: '1.7', marginBottom: '4px', background: '#EEF4F8', color: '#1A5E8A' }}
                             />
                           )}
-                          <textarea style={styles.textarea} value={bloc.contenu} onChange={e => modifierBloc(i, 'contenu', e.target.value)} placeholder="Paroles..." />
+                          <textarea
+                            style={showAccordsInput
+                              ? { ...styles.textarea, fontFamily: 'DM Mono, monospace', fontSize: '0.82rem', lineHeight: '1.7' }
+                              : styles.textarea}
+                            value={bloc.contenu}
+                            onChange={e => modifierBloc(i, 'contenu', e.target.value)}
+                            placeholder="Paroles..."
+                          />
                         </div>
                       )}
                     </Draggable>
