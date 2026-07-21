@@ -189,11 +189,30 @@ export default function AddSongPage() {
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i)
           const contenu = await page.getTextContent()
-          const textePage = contenu.items
-            .map(item => item.str)
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim()
+
+          // Regroupe les items de texte par ligne (position verticale du PDF),
+          // pour préserver la structure visuelle (ex : ligne d'accords au-dessus des paroles)
+          const lignes = []
+          let ligneCourante = []
+          let yPrecedent = null
+          const TOLERANCE_Y = 2
+
+          for (const item of contenu.items) {
+            const y = item.transform[5]
+            if (yPrecedent !== null && Math.abs(y - yPrecedent) > TOLERANCE_Y) {
+              lignes.push(ligneCourante)
+              ligneCourante = []
+            }
+            ligneCourante.push(item)
+            yPrecedent = y
+          }
+          if (ligneCourante.length) lignes.push(ligneCourante)
+
+          const textePage = lignes
+            .map(ligne => ligne.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .join('\n')
+
           if (textePage) texteComplet += textePage + '\n\n'
         }
 
