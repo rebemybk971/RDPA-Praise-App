@@ -203,24 +203,27 @@ export default function HistoriquePage() {
   const maxTopMoins = Math.max(...topMoins.map(x => x.count), 1)
   const maxAlpha = Math.max(...alpha.map(x => x.count), 1)
 
-  // ----- Onglet SOLISTES (inchangé depuis S1.4) -----
+  // ----- Onglet SOLISTES (compte le soliste principal + le 2e soliste des duos) -----
   const solistesInscrits = Object.values(
     filtered.reduce((acc, row) => {
-      if (!row.lead_id) return acc
-      const key = row.lead_id
-      if (!acc[key]) acc[key] = { id: row.lead_id, nom: row.lead || '—', count: 0 }
-      acc[key].count++
+      ;[[row.lead_id, row.lead], [row.lead_id_2, row.lead_2]].forEach(([leadId, lead]) => {
+        if (!leadId) return
+        if (!acc[leadId]) acc[leadId] = { id: leadId, nom: lead || '—', count: 0 }
+        acc[leadId].count++
+      })
       return acc
     }, {})
   ).sort((a, b) => b.count - a.count)
 
   const solistesAutres = Object.values(
     filtered.reduce((acc, row) => {
-      if (row.lead_id) return acc
-      if (!row.lead || !row.lead.trim()) return acc
-      const key = row.lead.trim().toLowerCase()
-      if (!acc[key]) acc[key] = { nom: row.lead.trim(), count: 0 }
-      acc[key].count++
+      ;[[row.lead_id, row.lead], [row.lead_id_2, row.lead_2]].forEach(([leadId, lead]) => {
+        if (leadId) return
+        if (!lead || !lead.trim()) return
+        const key = lead.trim().toLowerCase()
+        if (!acc[key]) acc[key] = { nom: lead.trim(), count: 0 }
+        acc[key].count++
+      })
       return acc
     }, {})
   ).sort((a, b) => b.count - a.count)
