@@ -356,8 +356,8 @@ export default function AddSongPage() {
               <input type="range" min="40" max="220" value={infos.bpm || 80}
                 onChange={e => setInfos(p => ({...p, bpm: Number(e.target.value)}))}
                 style={{ flex: 1 }} />
-              <input type="number" min="40" max="220" value={infos.bpm || 80}
-                onChange={e => setInfos(p => ({...p, bpm: e.target.value === '' ? 80 : Number(e.target.value)}))}
+              <input type="number" min="40" max="220" value={infos.bpm}
+                onChange={e => setInfos(p => ({...p, bpm: e.target.value === '' ? '' : Number(e.target.value)}))}
                 style={{ ...styles.input, width: '70px' }} />
             </div>
           </div>
