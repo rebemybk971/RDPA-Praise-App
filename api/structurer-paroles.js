@@ -22,15 +22,23 @@ export default async function handler(req, res) {
 
   const prompt = `Tu structures les paroles d'un chant chrétien en blocs (Couplet 1, Couplet 2, Refrain, Pont, Intro, Outro, etc).
 Le texte brut ci-dessous provient d'une extraction PDF et peut contenir des sauts de ligne mal placés, des répétitions ou du bruit.
-Réponds UNIQUEMENT avec un objet JSON de la forme :
-{"blocs": [{"nom": "Couplet 1", "contenu": "..."}, {"nom": "Refrain", "contenu": "..."}]}
+Il peut aussi contenir des accords (symboles comme G, Am, D7, Fmaj7, Bb, C#m...) entremêlés avec les paroles, soit sur leur propre ligne au-dessus des paroles, soit collés dans le texte.
 
-Règles :
-- Regroupe les paroles par section logique (couplets, refrain, pont...).
+Réponds UNIQUEMENT avec un objet JSON de la forme :
+{"blocs": [{"nom": "Couplet 1", "contenu": "...", "accords": "..."}, {"nom": "Refrain", "contenu": "...", "accords": "..."}]}
+
+Règles pour "contenu" :
+- Regroupe les paroles par section logique (couplets, refrain, pont...), sans les accords.
 - Si un refrain se répète à l'identique plusieurs fois dans le texte, ne le liste qu'une seule fois sous "Refrain".
-- Conserve les sauts de ligne à l'intérieur de "contenu" (un \\n entre chaque ligne de parole).
+- Conserve les sauts de ligne (un \\n entre chaque ligne de parole).
 - Ne modifie pas les mots ni la ponctuation, corrige uniquement les sauts de ligne et les espaces superflus.
-- N'ajoute aucun texte en dehors du JSON.
+
+Règles pour "accords" :
+- Si le bloc ne contient aucun accord détectable dans le texte source, mets "accords": "" (chaîne vide).
+- Si des accords sont détectés, produis une ligne d'accords par ligne de paroles correspondante (même nombre de \\n que "contenu"), avec les accords placés approximativement au-dessus du mot où ils apparaissent, en utilisant des espaces pour l'alignement (police monospace).
+- N'invente jamais d'accords qui ne sont pas présents dans le texte source.
+
+N'ajoute aucun texte en dehors du JSON.
 
 Texte brut :
 """

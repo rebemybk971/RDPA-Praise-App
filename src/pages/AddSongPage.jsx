@@ -243,7 +243,9 @@ export default function AddSongPage() {
         setErreur(data.error || 'Erreur lors de la structuration IA.')
         return
       }
-      setParoles(data.blocs.map(b => ({ nom: b.nom || 'Bloc', contenu: b.contenu || '', accords: '', id: newBlocId() })))
+      const nouveauxBlocs = data.blocs.map(b => ({ nom: b.nom || 'Bloc', contenu: b.contenu || '', accords: b.accords || '', id: newBlocId() }))
+      setParoles(nouveauxBlocs)
+      if (nouveauxBlocs.some(b => b.accords)) setShowAccordsInput(true)
     } catch (err) {
       console.error('[structurerAvecIA] Exception :', err)
       setErreur('Impossible de contacter le service IA.')
