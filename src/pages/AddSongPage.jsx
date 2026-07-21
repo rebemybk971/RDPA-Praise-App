@@ -75,6 +75,7 @@ export default function AddSongPage() {
     { nom: 'Couplet 1', contenu: '', accords: '', id: newBlocId() }
   ])
   const [showAccordsInput, setShowAccordsInput] = useState(false)
+  const [structurationEnCours, setStructurationEnCours] = useState(false)
 
   const [pupitres, setPupitres] = useState({
     soprano: '', alto: '', tenor: '', basse: '',
@@ -220,6 +221,34 @@ export default function AddSongPage() {
     }
 
     setImportEnCours(false)
+  }
+
+  async function structurerAvecIA() {
+    const texteComplet = paroles.map(b => b.contenu).filter(Boolean).join('\n\n')
+    if (!texteComplet.trim()) {
+      setErreur("Aucun texte à structurer. Importe ou colle des paroles d'abord.")
+      return
+    }
+    setStructurationEnCours(true)
+    setErreur('')
+    try {
+      const res = await fetch('/api/structurer-paroles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texte: texteComplet }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('[structurerAvecIA] Erreur API :', data.error)
+        setErreur(data.error || 'Erreur lors de la structuration IA.')
+        return
+      }
+      setParoles(data.blocs.map(b => ({ nom: b.nom || 'Bloc', contenu: b.contenu || '', accords: '', id: newBlocId() })))
+    } catch (err) {
+      console.error('[structurerAvecIA] Exception :', err)
+      setErreur('Impossible de contacter le service IA.')
+    }
+    setStructurationEnCours(false)
   }
 
   async function sauvegarder() {
@@ -401,6 +430,13 @@ export default function AddSongPage() {
                 {importEnCours ? '⏳ Import...' : '📄 Importer'}
                 <input type="file" accept=".pdf,.txt" onChange={importerFichier} style={{ display: 'none' }} />
               </label>
+              <button
+                onClick={structurerAvecIA}
+                disabled={structurationEnCours}
+                style={{ ...styles.boutonSecondaire, fontSize: '13px', padding: '6px 12px' }}
+              >
+                {structurationEnCours ? '⏳ Structuration...' : '✨ Structurer avec l\'IA'}
+              </button>
             </div>
           </div>
           {erreur && <div style={styles.erreur}>{erreur}</div>}
