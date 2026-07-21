@@ -192,20 +192,32 @@ export default function AddSongPage() {
           const contenu = await page.getTextContent()
 
           // Regroupe les items de texte par ligne (position verticale du PDF),
-          // pour préserver la structure visuelle (ex : ligne d'accords au-dessus des paroles)
+          // pour préserver la structure visuelle (ex : ligne d'accords au-dessus des paroles).
+          // Un exposant (ex : le "5" de "Sol⁵") a une police plus petite et est légèrement
+          // surélevé : on le rattache à la ligne du texte qui le précède plutôt que d'en faire
+          // une ligne à part.
           const lignes = []
           let ligneCourante = []
           let yPrecedent = null
+          let hauteurPrecedente = null
           const TOLERANCE_Y = 2
 
           for (const item of contenu.items) {
             const y = item.transform[5]
-            if (yPrecedent !== null && Math.abs(y - yPrecedent) > TOLERANCE_Y) {
+            const hauteur = item.height || 0
+            // Un espace ou élément invisible (hauteur 0) ne doit jamais provoquer de saut de ligne
+            const estInvisible = hauteur === 0 || !item.str.trim()
+            const estExposant = !estInvisible && hauteurPrecedente > 0 && hauteur < hauteurPrecedente * 0.85
+            const continueLigne = estInvisible || estExposant
+            if (yPrecedent !== null && !continueLigne && Math.abs(y - yPrecedent) > TOLERANCE_Y) {
               lignes.push(ligneCourante)
               ligneCourante = []
             }
             ligneCourante.push(item)
-            yPrecedent = y
+            if (!continueLigne) {
+              yPrecedent = y
+              hauteurPrecedente = hauteur
+            }
           }
           if (ligneCourante.length) lignes.push(ligneCourante)
 
@@ -219,7 +231,9 @@ export default function AddSongPage() {
               const debut = item.transform[4]
               if (finPrecedente !== null) {
                 const largeurCar = item.str.length > 0 ? (item.width || 0) / item.str.length : 5
-                const nbEspaces = Math.max(1, Math.round((debut - finPrecedente) / (largeurCar || 5)))
+                const ecart = debut - finPrecedente
+                // Écart quasi nul (ex : un exposant collé à son accord) : pas d'espace inséré
+                const nbEspaces = ecart <= 0.5 ? 0 : Math.max(1, Math.round(ecart / (largeurCar || 5)))
                 texte += ' '.repeat(Math.min(nbEspaces, 20))
               }
               texte += item.str
