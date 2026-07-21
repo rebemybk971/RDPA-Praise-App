@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { supabase } from '../lib/supabase'
 import * as pdfjsLib from 'pdfjs-dist'
 
@@ -10,6 +11,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 
 const TONALITES = ['Do', 'Do#', 'Ré', 'Ré#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si']
 const PUPITRES = ['soprano', 'alto', 'tenor', 'basse', 'clavier', 'guitare', 'batterie']
+
+let blocUidCounter = 0
+function newBlocId() {
+  return `bloc-${blocUidCounter++}`
+}
 
 const NOMS_BLOCS = [
   'Couplet 1', 'Couplet 2', 'Couplet 3', 'Couplet 4',
@@ -65,8 +71,8 @@ export default function AddSongPage() {
     bpm: 80,
   })
 
-  const [paroles, setParoles] = useState([
-    { nom: 'Couplet 1', contenu: '', accords: '' }
+  const [paroles, setParoles] = useState(() => [
+    { nom: 'Couplet 1', contenu: '', accords: '', id: newBlocId() }
   ])
   const [showAccordsInput, setShowAccordsInput] = useState(false)
 
@@ -113,7 +119,7 @@ export default function AddSongPage() {
       })
       const blocsParoles = parseParoles(data.paroles)
       const accordsMap = parseAccordsMap(data.accords)
-      const blocsAvecAccords = blocsParoles.map(b => ({ ...b, accords: accordsMap[b.nom] || '' }))
+      const blocsAvecAccords = blocsParoles.map(b => ({ ...b, accords: accordsMap[b.nom] || '', id: newBlocId() }))
       setParoles(blocsAvecAccords)
       if (blocsAvecAccords.some(b => b.accords)) setShowAccordsInput(true)
       setPupitres({
@@ -145,7 +151,7 @@ export default function AddSongPage() {
   }
 
   function ajouterBloc() {
-    setParoles(prev => [...prev, { nom: 'Couplet ' + (prev.length + 1), contenu: '', accords: '' }])
+    setParoles(prev => [...prev, { nom: 'Couplet ' + (prev.length + 1), contenu: '', accords: '', id: newBlocId() }])
   }
 
   function supprimerBloc(index) {
@@ -154,6 +160,17 @@ export default function AddSongPage() {
 
   function modifierBloc(index, champ, valeur) {
     setParoles(prev => prev.map((b, i) => i === index ? { ...b, [champ]: valeur } : b))
+  }
+
+  function onDragEndParoles(result) {
+    if (!result.destination) return
+    if (result.destination.index === result.source.index) return
+    setParoles(prev => {
+      const items = Array.from(prev)
+      const [moved] = items.splice(result.source.index, 1)
+      items.splice(result.destination.index, 0, moved)
+      return items
+    })
   }
 
   async function importerFichier(e) {
@@ -185,14 +202,14 @@ export default function AddSongPage() {
           .trim()
 
         if (texteComplet) {
-          setParoles([{ nom: 'Paroles importées', contenu: texteComplet }])
+          setParoles([{ nom: 'Paroles importées', contenu: texteComplet, accords: '', id: newBlocId() }])
         } else {
           setErreur('Le PDF ne contient pas de texte lisible. Essaie de copier-coller les paroles directement.')
         }
 
       } else if (fichier.type === 'text/plain') {
         const texte = await fichier.text()
-        setParoles([{ nom: 'Paroles importées', contenu: texte.trim() }])
+        setParoles([{ nom: 'Paroles importées', contenu: texte.trim(), accords: '', id: newBlocId() }])
 
       } else {
         setErreur('Format non supporté. Utilise un PDF avec du texte, ou colle les paroles directement.')
@@ -387,33 +404,62 @@ export default function AddSongPage() {
             </div>
           </div>
           {erreur && <div style={styles.erreur}>{erreur}</div>}
-          {paroles.map((bloc, i) => (
-            <div key={i} style={styles.bloc}>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                <select value={bloc.nom} onChange={e => modifierBloc(i, 'nom', e.target.value)}
-                  style={{ ...styles.select, flex: 1 }}>
-                  {NOMS_BLOCS.map(n => (
-                    <option key={n} value={n}>{n}</option>
+          <DragDropContext onDragEnd={onDragEndParoles}>
+            <Droppable droppableId="paroles-blocs">
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps}>
+                  {paroles.map((bloc, i) => (
+                    <Draggable key={bloc.id} draggableId={bloc.id} index={i}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          style={{
+                            ...styles.bloc,
+                            opacity: snapshot.isDragging ? 0.7 : 1,
+                            boxShadow: snapshot.isDragging ? '0 8px 24px rgba(0,0,0,0.15)' : undefined,
+                            ...provided.draggableProps.style,
+                          }}
+                        >
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                            {paroles.length > 1 && (
+                              <span
+                                {...provided.dragHandleProps}
+                                style={{ cursor: 'grab', color: '#ccc', fontSize: '1rem', padding: '0 2px', lineHeight: 1, userSelect: 'none' }}
+                                title="Déplacer"
+                              >⠿</span>
+                            )}
+                            <select value={bloc.nom} onChange={e => modifierBloc(i, 'nom', e.target.value)}
+                              style={{ ...styles.select, flex: 1 }}>
+                              {NOMS_BLOCS.map(n => (
+                                <option key={n} value={n}>{n}</option>
+                              ))}
+                              {!NOMS_BLOCS.includes(bloc.nom) && (
+                                <option key={bloc.nom} value={bloc.nom}>{bloc.nom}</option>
+                              )}
+                            </select>
+                            {paroles.length > 1 && (
+                              <button onClick={() => supprimerBloc(i)} style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+                            )}
+                          </div>
+                          {showAccordsInput && (
+                            <textarea
+                              value={bloc.accords}
+                              onChange={e => modifierBloc(i, 'accords', e.target.value)}
+                              placeholder="Accords (alignés avec les paroles)&#10;Ex : G    Am   F    C"
+                              style={{ ...styles.textarea, fontFamily: 'DM Mono, monospace', fontSize: '0.82rem', minHeight: '64px', lineHeight: '1.7', marginBottom: '4px', background: '#EEF4F8', color: '#1A5E8A' }}
+                            />
+                          )}
+                          <textarea style={styles.textarea} value={bloc.contenu} onChange={e => modifierBloc(i, 'contenu', e.target.value)} placeholder="Paroles..." />
+                        </div>
+                      )}
+                    </Draggable>
                   ))}
-                  {!NOMS_BLOCS.includes(bloc.nom) && (
-                    <option key={bloc.nom} value={bloc.nom}>{bloc.nom}</option>
-                  )}
-                </select>
-                {paroles.length > 1 && (
-                  <button onClick={() => supprimerBloc(i)} style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: '16px' }}>✕</button>
-                )}
-              </div>
-              {showAccordsInput && (
-                <textarea
-                  value={bloc.accords}
-                  onChange={e => modifierBloc(i, 'accords', e.target.value)}
-                  placeholder="Accords (alignés avec les paroles)&#10;Ex : G    Am   F    C"
-                  style={{ ...styles.textarea, fontFamily: 'DM Mono, monospace', fontSize: '0.82rem', minHeight: '64px', lineHeight: '1.7', marginBottom: '4px', background: '#EEF4F8', color: '#1A5E8A' }}
-                />
+                  {provided.placeholder}
+                </div>
               )}
-              <textarea style={styles.textarea} value={bloc.contenu} onChange={e => modifierBloc(i, 'contenu', e.target.value)} placeholder="Paroles..." />
-            </div>
-          ))}
+            </Droppable>
+          </DragDropContext>
           <button style={styles.boutonSecondaire} onClick={ajouterBloc}>+ Ajouter un bloc</button>
           <button style={styles.boutonPrincipal} onClick={() => { setErreur(''); setEtape(3) }}>
             Suivant → Pupitres
