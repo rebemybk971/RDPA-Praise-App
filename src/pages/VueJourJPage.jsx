@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { supabase } from '../lib/supabase'
-import { useTheme } from '../hooks/useTheme'
 import { useAuth } from '../hooks/useAuth'
 
 const ANNOTATION_TYPES = {
@@ -136,7 +135,6 @@ function buildMedleyBlocsFromJson(json, setlist) {
 export default function VueJourJPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { cycleTheme, icon } = useTheme()
   const { user, profile } = useAuth()
   const [event, setEvent] = useState(null)
   const [setlist, setSetlist] = useState([])
@@ -387,7 +385,7 @@ export default function VueJourJPage() {
   )
 
   const night = {
-    bg: '#0D1820', surface: '#192840', text: '#E4F3FA',
+    bg: '#0D1820', surface: '#192840', surfaceBtn: '#2E4560', text: '#E4F3FA',
     textSec: 'rgba(228,243,250,0.55)', textTer: 'rgba(228,243,250,0.35)',
     border: 'rgba(75,191,232,0.15)', accent: '#4BBFE8',
   }
@@ -408,15 +406,9 @@ export default function VueJourJPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: night.textSec, fontSize: '1.1rem', padding: '4px 6px 4px 0', flexShrink: 0 }}>←</button>
           <p style={{ flex: 1, minWidth: 0, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: night.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event?.nom}</p>
-        </div>
-        <p style={{ fontSize: '0.7rem', color: night.textSec, margin: '2px 0 8px 26px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {formatDateLocale(event?.date)}
-          {` · ${setlist.length} chant${setlist.length !== 1 ? 's' : ''}`}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             onClick={() => setReadingMode(r => !r)}
-            style={{ background: readingMode ? night.accent : night.surface, color: readingMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 8px', cursor: 'pointer', fontSize: '0.9rem', flexShrink: 0 }}
+            style={{ background: readingMode ? night.accent : night.surfaceBtn, color: readingMode ? '#fff' : night.text, border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 8px', cursor: 'pointer', fontSize: '0.9rem', flexShrink: 0 }}
             title={readingMode ? 'Afficher les annotations' : 'Masquer les annotations'}
           >
             {readingMode ? '👁️‍🗨️' : '👁️'}
@@ -424,19 +416,22 @@ export default function VueJourJPage() {
           <button
             onClick={() => setShowAccords(a => !a)}
             title="Accords"
-            style={{ background: showAccords ? night.accent : night.surface, color: showAccords ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 8px', cursor: 'pointer', fontSize: '0.9rem', flexShrink: 0 }}
+            style={{ background: showAccords ? night.accent : night.surfaceBtn, color: showAccords ? '#fff' : night.text, border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 8px', cursor: 'pointer', fontSize: '0.9rem', flexShrink: 0 }}
           >
             🎼
           </button>
           <button
             onClick={toggleMedleyMode}
             title={medleyMode ? 'Revenir à la vue normale' : 'Mode médley'}
-            style={{ background: medleyMode ? '#A78BD9' : night.surface, color: medleyMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s', flexShrink: 0 }}
+            style={{ background: medleyMode ? '#A78BD9' : night.surfaceBtn, color: '#fff', border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s', flexShrink: 0 }}
           >
             {medleyMode ? 'Text' : 'Mix'}
           </button>
-          <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', flexShrink: 0, padding: '4px' }}>{icon}</button>
         </div>
+        <p style={{ fontSize: '0.7rem', color: night.textSec, margin: '4px 0 0 26px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {formatDateLocale(event?.date)}
+          {` · ${setlist.length} chant${setlist.length !== 1 ? 's' : ''}`}
+        </p>
       </div>
 
       {/* Setlist */}
