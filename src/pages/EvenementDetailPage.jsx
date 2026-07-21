@@ -373,9 +373,6 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
       setMode('aucun')
       setTexteLibre('')
       onChange(ec.id, null, null)
-    } else if (value === '__autre__') {
-      setMode('libre')
-      setTexteLibre('')
     } else {
       const m = membres.find(x => x.id === value)
       if (m) {
@@ -401,28 +398,45 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
       <span style={{ fontSize: '0.8rem', color: 'var(--texte-sec)' }}>🎤 Soliste :</span>
 
       {mode !== 'libre' ? (
-        <select
-          value={ec.lead_id || ''}
-          onChange={handleSelectChange}
-          style={{
-            fontSize: '0.8rem',
-            padding: '4px 8px',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            background: 'var(--card)',
-            color: 'var(--texte)',
-            fontFamily: 'var(--font-ui)',
-            cursor: 'pointer',
-            flex: 1,
-            minWidth: 120,
-          }}
-        >
-          <option value="">— Aucun —</option>
-          {membres.map(m => (
-            <option key={m.id} value={m.id}>{m.nom}</option>
-          ))}
-          <option value="__autre__">✏️ Autre (saisir un nom)…</option>
-        </select>
+        <>
+          <select
+            value={ec.lead_id || ''}
+            onChange={handleSelectChange}
+            style={{
+              fontSize: '0.8rem',
+              padding: '4px 8px',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'var(--card)',
+              color: 'var(--texte)',
+              fontFamily: 'var(--font-ui)',
+              cursor: 'pointer',
+              flex: 1,
+              minWidth: 120,
+            }}
+          >
+            <option value="">— Aucun —</option>
+            {membres.map(m => (
+              <option key={m.id} value={m.id}>{m.nom}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              setMode('libre')
+              setTexteLibre('')
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--texte-ter)',
+              fontSize: '0.85rem',
+            }}
+            title="Saisir un nom"
+          >
+            ✏️
+          </button>
+        </>
       ) : (
         <>
           <input
