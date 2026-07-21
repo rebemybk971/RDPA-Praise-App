@@ -404,36 +404,39 @@ export default function VueJourJPage() {
       )}
 
       {/* Header */}
-      <div style={{ position: 'sticky', top: 0, background: night.bg, borderBottom: `1px solid ${night.border}`, padding: '14px 20px', zIndex: 50, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: night.textSec, fontSize: '1.1rem', padding: '4px 8px 4px 0' }}>←</button>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: night.text }}>{event?.nom}</p>
-          <p style={{ fontSize: '0.72rem', color: night.textSec, marginTop: 1 }}>
-            {formatDateLocale(event?.date)}
-            {` · ${setlist.length} chant${setlist.length !== 1 ? 's' : ''}`}
-          </p>
+      <div style={{ position: 'sticky', top: 0, background: night.bg, borderBottom: `1px solid ${night.border}`, padding: '10px 14px', zIndex: 50, maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: night.textSec, fontSize: '1.1rem', padding: '4px 6px 4px 0', flexShrink: 0 }}>←</button>
+          <p style={{ flex: 1, minWidth: 0, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', fontWeight: 600, color: night.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event?.nom}</p>
         </div>
-        <button
-          onClick={() => setReadingMode(r => !r)}
-          style={{ background: readingMode ? night.accent : night.surface, color: readingMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s' }}
-          title={readingMode ? 'Afficher les annotations' : 'Masquer les annotations'}
-        >
-          {readingMode ? '👁️‍🗨️' : '👁️'}
-        </button>
-        <button
-          onClick={() => setShowAccords(a => !a)}
-          style={{ background: showAccords ? night.accent : night.surface, color: showAccords ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s' }}
-        >
-          ♩ Accords
-        </button>
-        <button
-          onClick={toggleMedleyMode}
-          title={medleyMode ? 'Revenir à la vue normale' : 'Mode médley'}
-          style={{ background: medleyMode ? '#A78BD9' : night.surface, color: medleyMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '7px 10px', cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s', flexShrink: 0 }}
-        >
-          {medleyMode ? '≡ Normal' : '∞ Médley'}
-        </button>
-        <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>{icon}</button>
+        <p style={{ fontSize: '0.7rem', color: night.textSec, margin: '2px 0 8px 26px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {formatDateLocale(event?.date)}
+          {` · ${setlist.length} chant${setlist.length !== 1 ? 's' : ''}`}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => setReadingMode(r => !r)}
+            style={{ background: readingMode ? night.accent : night.surface, color: readingMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 8px', cursor: 'pointer', fontSize: '0.9rem', flexShrink: 0 }}
+            title={readingMode ? 'Afficher les annotations' : 'Masquer les annotations'}
+          >
+            {readingMode ? '👁️‍🗨️' : '👁️'}
+          </button>
+          <button
+            onClick={() => setShowAccords(a => !a)}
+            title="Accords"
+            style={{ background: showAccords ? night.accent : night.surface, color: showAccords ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 8px', cursor: 'pointer', fontSize: '0.9rem', flexShrink: 0 }}
+          >
+            🎼
+          </button>
+          <button
+            onClick={toggleMedleyMode}
+            title={medleyMode ? 'Revenir à la vue normale' : 'Mode médley'}
+            style={{ background: medleyMode ? '#A78BD9' : night.surface, color: medleyMode ? '#fff' : night.textSec, border: `1px solid ${night.border}`, borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s', flexShrink: 0 }}
+          >
+            {medleyMode ? 'Text' : 'Mix'}
+          </button>
+          <button onClick={cycleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', flexShrink: 0, padding: '4px' }}>{icon}</button>
+        </div>
       </div>
 
       {/* Setlist */}
