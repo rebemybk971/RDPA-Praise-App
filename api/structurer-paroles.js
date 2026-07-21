@@ -27,16 +27,18 @@ Il peut aussi contenir des accords (symboles comme G, Am, D7, Fmaj7, Bb, C#m...)
 Réponds UNIQUEMENT avec un objet JSON de la forme :
 {"blocs": [{"nom": "Couplet 1", "contenu": "...", "accords": "..."}, {"nom": "Refrain", "contenu": "...", "accords": "..."}]}
 
+Important : l'espacement du texte source a déjà été calculé précisément à partir des positions réelles du PDF (police à chasse fixe). Ton rôle n'est PAS de recalculer ou d'estimer où placer les accords — c'est de RECOPIER TEL QUEL (verbatim, caractère pour caractère, sans changer un seul espace) chaque ligne de paroles et chaque ligne d'accords depuis le texte source. Tu ne fais que les CLASSER et les REGROUPER en blocs, jamais les réécrire.
+
 Règles pour "contenu" :
-- Regroupe les paroles par section logique (couplets, refrain, pont...), sans les accords.
+- Regroupe les lignes de paroles par section logique (couplets, refrain, pont...), sans les lignes d'accords.
 - Si un refrain se répète à l'identique plusieurs fois dans le texte, ne le liste qu'une seule fois sous "Refrain".
+- Recopie chaque ligne de paroles EXACTEMENT comme dans le texte source, espace par espace. N'ajoute ni ne supprime aucun espace à l'intérieur d'une ligne.
 - Conserve les sauts de ligne (un \\n entre chaque ligne de parole).
-- Ne modifie pas les mots ni la ponctuation. Tu peux normaliser les espaces multiples à l'intérieur d'une ligne de paroles en un seul espace.
 
 Règles pour "accords" (alignement précis, style OpenSong/OnSong) :
-- Si le bloc ne contient aucun accord détectable dans le texte source, mets "accords": "" (chaîne vide).
-- Si des accords sont détectés, produis EXACTEMENT une ligne d'accords par ligne de paroles correspondante (même nombre de \\n que "contenu", ligne vide "" si aucun accord sur cette ligne précise).
-- Pour positionner un accord, compte le nombre de caractères depuis le début de la ligne de paroles JUSQU'À la lettre au-dessus de laquelle il se trouve dans le texte source, puis place l'accord à cette même position de caractère dans la ligne d'accords (en complétant avec des espaces avant). Comme "contenu" est en police monospace identique à "accords", la position en caractères doit correspondre visuellement.
+- Si le bloc ne contient aucune ligne d'accords détectable dans le texte source, mets "accords": "" (chaîne vide).
+- Sinon, produis EXACTEMENT une ligne d'accords par ligne de paroles correspondante (même nombre de \\n que "contenu" ; ligne vide "" si aucune ligne d'accords n'existe au-dessus de cette ligne de paroles précise).
+- Chaque ligne d'accords doit être une COPIE EXACTE (même espacement) de la ligne correspondante trouvée dans le texte source, juste au-dessus de la ligne de paroles. Ne recalcule jamais la position, ne recentre jamais, ne modifie aucun espace.
 - N'invente jamais d'accords qui ne sont pas présents dans le texte source.
 
 Exemple (texte source avec accords sur leur propre ligne au-dessus des paroles) :
@@ -45,7 +47,7 @@ G          D          Em
 Amazing grace how sweet the sound
 """
 Doit donner : "contenu": "Amazing grace how sweet the sound", "accords": "G          D          Em"
-(le "G" est au caractère 0 comme "Amazing", le "D" est au caractère 11 comme "how", etc. — recopie la position réelle du texte source, ne la réinvente pas).
+(la ligne d'accords est recopiée à l'identique du texte source, aucun caractère modifié).
 
 N'ajoute aucun texte en dehors du JSON.
 
