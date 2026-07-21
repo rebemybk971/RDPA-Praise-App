@@ -227,9 +227,26 @@ export default function AddSongPage() {
             return texte.trimEnd()
           }
 
-          const textePage = lignes
-            .map(texteAvecEspacement)
-            .filter(l => l.trim())
+          // Ligne + position verticale, pour détecter les sauts de couplet (grand écart vertical)
+          const lignesAvecY = lignes
+            .map(ligneItems => ({ texte: texteAvecEspacement(ligneItems), y: ligneItems[0]?.transform[5] }))
+            .filter(l => l.texte.trim())
+
+          const ecarts = []
+          for (let k = 1; k < lignesAvecY.length; k++) {
+            ecarts.push(Math.abs(lignesAvecY[k].y - lignesAvecY[k - 1].y))
+          }
+          const ecartsTries = [...ecarts].sort((a, b) => a - b)
+          const ecartMedian = ecartsTries.length ? ecartsTries[Math.floor(ecartsTries.length / 2)] : 0
+
+          const textePage = lignesAvecY
+            .map((l, idx) => {
+              if (idx > 0 && ecartMedian > 0) {
+                const ecart = Math.abs(l.y - lignesAvecY[idx - 1].y)
+                if (ecart > ecartMedian * 1.6) return '\n' + l.texte
+              }
+              return l.texte
+            })
             .join('\n')
 
           if (textePage) texteComplet += textePage + '\n\n'
