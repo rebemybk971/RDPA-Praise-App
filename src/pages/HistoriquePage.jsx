@@ -282,17 +282,17 @@ export default function HistoriquePage() {
                 </p>
               </div>
               {group.songs.map((row, si) => (
-                <div key={si} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '9px 6px', borderBottom: '1px solid var(--border)' }}>
+                <div key={si} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '9px 6px', borderBottom: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--texte-ter)', minWidth: 18 }}>{si + 1}</span>
                     <span style={{ flex: 1, minWidth: 120, fontFamily: 'var(--font-title)', fontSize: '0.95rem', color: 'var(--texte)' }}>{row.chants?.titre}</span>
                     {row.tonalite_jour && <span style={{ fontSize: '0.75rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>{row.tonalite_jour}</span>}
                     {row.chants?.categorie && <span className="cat-badge" style={{ ...catStyle(row.chants.categorie), fontSize: '0.62rem', padding: '2px 7px' }}>{row.chants.categorie}</span>}
+                    {row.lead && <span style={{ fontSize: '0.78rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>🎤 {row.lead}</span>}
                   </div>
-                  {(row.lead || row.lead_2) && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingLeft: 28 }}>
-                      {row.lead && <span style={{ fontSize: '0.78rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>🎤 {row.lead}</span>}
-                      {row.lead_2 && <span style={{ fontSize: '0.78rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>🎤 {row.lead_2}</span>}
+                  {row.lead_2 && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--bleu-principal)', fontWeight: 500 }}>🎤 {row.lead_2}</span>
                     </div>
                   )}
                 </div>
