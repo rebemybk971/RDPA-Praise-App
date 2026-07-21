@@ -76,6 +76,7 @@ export default function AddSongPage() {
   ])
   const [showAccordsInput, setShowAccordsInput] = useState(false)
   const [structurationEnCours, setStructurationEnCours] = useState(false)
+  const [apercu, setApercu] = useState(false)
 
   const [pupitres, setPupitres] = useState({
     soprano: '', alto: '', tenor: '', basse: '',
@@ -406,8 +407,70 @@ export default function AddSongPage() {
     )
   }
 
+  const parolesAvecAccords = paroles.some(b => b.accords?.trim())
+
   return (
     <div style={styles.page}>
+      {apercu && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '24px 12px', overflowY: 'auto',
+          }}
+          onClick={() => setApercu(false)}
+        >
+          <div
+            style={{
+              background: 'var(--color-background-primary, white)', borderRadius: '12px',
+              padding: '20px', maxWidth: '600px', width: '100%', boxSizing: 'border-box',
+              marginTop: '20px',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: 0, color: 'var(--color-text-primary, #1a1a1a)' }}>
+                {infos.titre.trim() || 'Aperçu du chant'}
+              </h2>
+              <button
+                onClick={() => setApercu(false)}
+                style={{ background: 'none', border: 'none', color: '#999', cursor: 'pointer', fontSize: '18px' }}
+              >✕</button>
+            </div>
+            {parolesAvecAccords
+              ? paroles.map((bloc, bi) => {
+                  const lignesContenu = bloc.contenu.split('\n')
+                  const lignesAccords = (bloc.accords || '').split('\n')
+                  return (
+                    <div key={bloc.id} style={{ marginBottom: 24 }}>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--bleu-principal, #1A7BAF)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 6 }}>{bloc.nom}</p>
+                      {lignesContenu.map((ligne, li) => (
+                        <div key={li}>
+                          {lignesAccords[li]?.trim() && (
+                            <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.9rem', color: 'var(--bleu-principal, #1A7BAF)', whiteSpace: 'pre', lineHeight: 1.2, marginBottom: 1 }}>
+                              {lignesAccords[li]}
+                            </p>
+                          )}
+                          <p style={{ fontFamily: 'DM Mono, monospace', fontSize: '0.9rem', color: 'var(--color-text-primary, #1a1a1a)', whiteSpace: 'pre', lineHeight: 1.5 }}>
+                            {ligne || '\u00A0'}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })
+              : paroles.map(bloc => (
+                  <div key={bloc.id} style={{ marginBottom: 24 }}>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--bleu-principal, #1A7BAF)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 6 }}>{bloc.nom}</p>
+                    <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', lineHeight: 2, color: 'var(--color-text-primary, #1a1a1a)', whiteSpace: 'pre-wrap' }}>
+                      {bloc.contenu}
+                    </div>
+                  </div>
+                ))
+            }
+          </div>
+        </div>
+      )}
       <h1 style={styles.titre}>{modeEdition ? 'Modifier le chant' : 'Ajouter un chant'}</h1>
 
       <div style={styles.etapes}>
@@ -493,6 +556,12 @@ export default function AddSongPage() {
                 style={{ ...styles.boutonSecondaire, fontSize: '13px', padding: '6px 12px' }}
               >
                 {structurationEnCours ? '⏳ Structuration...' : '✨ Structurer avec l\'IA'}
+              </button>
+              <button
+                onClick={() => setApercu(true)}
+                style={{ ...styles.boutonSecondaire, fontSize: '13px', padding: '6px 12px' }}
+              >
+                👁️ Aperçu
               </button>
             </div>
           </div>
