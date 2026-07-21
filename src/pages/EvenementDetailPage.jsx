@@ -125,6 +125,22 @@ export default function EvenementDetailPage() {
     toast('Soliste enregistré ✓')
   }
 
+  async function updateLead2(ecId, leadId, leadText) {
+    const payload = { lead_id_2: leadId, lead_2: leadText }
+    const { error } = await supabase
+      .from('evenement_chants')
+      .update(payload)
+      .eq('id', ecId)
+
+    if (error) {
+      console.error('[updateLead2] Erreur :', error)
+      toast(`⚠️ 2e soliste non enregistré : ${error.message}`)
+      return
+    }
+    setSetlist(s => s.map(x => x.id === ecId ? { ...x, lead_id_2: leadId, lead_2: leadText } : x))
+    toast('2e soliste enregistré ✓')
+  }
+
   async function onDragEnd(result) {
     if (!result.destination) return
     if (result.destination.index === result.source.index) return
@@ -284,12 +300,13 @@ export default function EvenementDetailPage() {
                           )}
                         </div>
 
-                        {/* Sélecteur soliste inline */}
-                        <SoloistePicker
+                        {/* Sélecteur(s) soliste inline */}
+                        <SoloistesRow
                           ec={ec}
                           membres={membres}
                           canEdit={canEdit}
-                          onChange={updateLead}
+                          onChangeLead={updateLead}
+                          onChangeLead2={updateLead2}
                         />
                       </div>
                     )}
@@ -350,19 +367,63 @@ export default function EvenementDetailPage() {
   )
 }
 
-function SoloistePicker({ ec, membres, canEdit, onChange }) {
+function SoloistesRow({ ec, membres, canEdit, onChangeLead, onChangeLead2 }) {
+  const [showSecond, setShowSecond] = useState(!!(ec.lead_id_2 || ec.lead_2))
+
+  return (
+    <>
+      <SoloistePicker
+        leadId={ec.lead_id}
+        leadText={ec.lead}
+        membres={membres}
+        canEdit={canEdit}
+        onChange={(id, text) => onChangeLead(ec.id, id, text)}
+      />
+      {(showSecond || !canEdit) && (
+        <SoloistePicker
+          leadId={ec.lead_id_2}
+          leadText={ec.lead_2}
+          membres={membres}
+          canEdit={canEdit}
+          label="🎤 2e soliste :"
+          onChange={(id, text) => onChangeLead2(ec.id, id, text)}
+          onRemove={canEdit ? () => { onChangeLead2(ec.id, null, null); setShowSecond(false) } : undefined}
+        />
+      )}
+      {canEdit && !showSecond && (
+        <button
+          onClick={() => setShowSecond(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--bleu-principal)',
+            fontSize: '0.75rem',
+            padding: '0 0 4px 32px',
+            textAlign: 'left',
+            fontFamily: 'var(--font-ui)',
+          }}
+        >
+          + Ajouter un 2e soliste
+        </button>
+      )}
+    </>
+  )
+}
+
+function SoloistePicker({ leadId, leadText, membres, canEdit, label = '🎤 Soliste :', onChange, onRemove }) {
   const [mode, setMode] = useState(() => {
-    if (ec.lead_id) return 'membre'
-    if (ec.lead) return 'libre'
+    if (leadId) return 'membre'
+    if (leadText) return 'libre'
     return 'aucun'
   })
-  const [texteLibre, setTexteLibre] = useState(ec.lead || '')
+  const [texteLibre, setTexteLibre] = useState(leadText || '')
 
   if (!canEdit) {
-    if (!ec.lead) return null
+    if (!leadText) return null
     return (
       <div style={{ paddingLeft: 32, fontSize: '0.8rem', color: 'var(--texte-sec)' }}>
-        🎤 {ec.lead}
+        🎤 {leadText}
       </div>
     )
   }
@@ -372,13 +433,13 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
     if (value === '') {
       setMode('aucun')
       setTexteLibre('')
-      onChange(ec.id, null, null)
+      onChange(null, null)
     } else {
       const m = membres.find(x => x.id === value)
       if (m) {
         setMode('membre')
         setTexteLibre('')
-        onChange(ec.id, m.id, m.nom)
+        onChange(m.id, m.nom)
       }
     }
   }
@@ -387,20 +448,20 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
     const t = texteLibre.trim()
     if (t === '') {
       setMode('aucun')
-      onChange(ec.id, null, null)
+      onChange(null, null)
     } else {
-      onChange(ec.id, null, t)
+      onChange(null, t)
     }
   }
 
   return (
     <div style={{ paddingLeft: 32, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: '0.8rem', color: 'var(--texte-sec)' }}>🎤 Soliste :</span>
+      <span style={{ fontSize: '0.8rem', color: 'var(--texte-sec)' }}>{label}</span>
 
       {mode !== 'libre' ? (
         <>
           <select
-            value={ec.lead_id || ''}
+            value={leadId || ''}
             onChange={handleSelectChange}
             style={{
               fontSize: '0.8rem',
@@ -436,6 +497,21 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
           >
             ✏️
           </button>
+          {onRemove && (
+            <button
+              onClick={onRemove}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--texte-ter)',
+                fontSize: '0.85rem',
+              }}
+              title="Retirer ce soliste"
+            >
+              ✕
+            </button>
+          )}
         </>
       ) : (
         <>
@@ -460,7 +536,7 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
           />
           <button
             onClick={() => {
-              setMode(ec.lead_id ? 'membre' : 'aucun')
+              setMode(leadId ? 'membre' : 'aucun')
               setTexteLibre('')
             }}
             style={{
@@ -474,6 +550,21 @@ function SoloistePicker({ ec, membres, canEdit, onChange }) {
           >
             ↩︎
           </button>
+          {onRemove && (
+            <button
+              onClick={onRemove}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--texte-ter)',
+                fontSize: '0.85rem',
+              }}
+              title="Retirer ce soliste"
+            >
+              ✕
+            </button>
+          )}
         </>
       )}
     </div>
