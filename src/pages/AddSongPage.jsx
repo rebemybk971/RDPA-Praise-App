@@ -269,7 +269,7 @@ export default function AddSongPage() {
 
         texteComplet = texteComplet
           .replace(/[^\x20-\x7E\xA0-\xFF\u00C0-\u024F\u2018\u2019\u201C\u201D\n\r]/g, '')
-          .replace(/\s+\n/g, '\n')
+          .replace(/[ \t]+\n/g, '\n')
           .trim()
 
         if (texteComplet) {

@@ -1,5 +1,56 @@
 // Fonction serverless Vercel : structure des paroles brutes (issues d'un import PDF)
 // en blocs (Couplet, Refrain, Pont...) via l'API Mistral. La clé API reste côté serveur.
+//
+// Approche : la détection des lignes d'accords et leur association aux paroles est faite
+// en JavaScript déterministe (jamais générée par l'IA, donc jamais d'altération d'espacement).
+// L'IA n'intervient que pour nommer les paragraphes et repérer les refrains répétés — elle
+// ne renvoie que des noms et des numéros de paragraphe, jamais de texte.
+
+// Note française (Do, Ré, Mi, Fa, Sol, La, Si) ou anglaise (A-G)
+const NOTE = '(?:Do|R[ée]|Mi|Fa|Sol|La|Si|[A-G])'
+const REGEX_ACCORD = new RegExp(`^${NOTE}(#|b)?(m|min|maj|dim|aug|sus)?\\d{0,2}(maj7)?(\\/${NOTE}(#|b)?)?$`, 'i')
+
+function estLigneAccords(ligne) {
+  const tokens = ligne.trim().split(/\s+/).filter(Boolean)
+  if (tokens.length === 0) return false
+  const nbAccords = tokens.filter(t => REGEX_ACCORD.test(t)).length
+  return nbAccords / tokens.length >= 0.6
+}
+
+// Découpe le texte en paragraphes (séparés par une ligne vide)
+function decouperParagraphes(texte) {
+  return texte
+    .split(/\n{2,}/)
+    .map(p => p.split('\n'))
+    .filter(lignes => lignes.some(l => l.trim()))
+}
+
+// Associe chaque ligne de paroles à sa ligne d'accords (si présente juste au-dessus)
+function construireBloc(lignes) {
+  const contenuLignes = []
+  const accordsLignes = []
+  let i = 0
+  while (i < lignes.length) {
+    const ligne = lignes[i]
+    if (estLigneAccords(ligne) && i + 1 < lignes.length && !estLigneAccords(lignes[i + 1])) {
+      accordsLignes.push(ligne)
+      contenuLignes.push(lignes[i + 1])
+      i += 2
+    } else if (estLigneAccords(ligne)) {
+      accordsLignes.push(ligne)
+      contenuLignes.push('')
+      i += 1
+    } else {
+      contenuLignes.push(ligne)
+      accordsLignes.push('')
+      i += 1
+    }
+  }
+  return {
+    contenu: contenuLignes.join('\n').trim(),
+    accords: accordsLignes.some(l => l.trim()) ? accordsLignes.join('\n') : '',
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -20,41 +71,31 @@ export default async function handler(req, res) {
     return
   }
 
-  const prompt = `Tu structures les paroles d'un chant chrétien en blocs (Couplet 1, Couplet 2, Refrain, Pont, Intro, Outro, etc).
-Le texte brut ci-dessous provient d'une extraction PDF et peut contenir des sauts de ligne mal placés, des répétitions ou du bruit.
-Il peut aussi contenir des accords (symboles comme G, Am, D7, Fmaj7, Bb, C#m...) entremêlés avec les paroles, soit sur leur propre ligne au-dessus des paroles, soit collés dans le texte.
+  const paragraphes = decouperParagraphes(texte)
+  if (paragraphes.length === 0) {
+    res.status(400).json({ error: 'Aucun paragraphe détecté dans le texte' })
+    return
+  }
 
-Réponds UNIQUEMENT avec un objet JSON de la forme :
-{"blocs": [{"nom": "Couplet 1", "contenu": "...", "accords": "..."}, {"nom": "Refrain", "contenu": "...", "accords": "..."}]}
+  const blocsBruts = paragraphes.map(construireBloc)
 
-Important : l'espacement du texte source a déjà été calculé précisément à partir des positions réelles du PDF (police à chasse fixe). Ton rôle n'est PAS de recalculer ou d'estimer où placer les accords — c'est de RECOPIER TEL QUEL (verbatim, caractère pour caractère, sans changer un seul espace) chaque ligne de paroles et chaque ligne d'accords depuis le texte source. Tu ne fais que les CLASSER et les REGROUPER en blocs, jamais les réécrire.
+  const apercuParagraphes = blocsBruts
+    .map((b, idx) => `--- Paragraphe ${idx} ---\n${b.contenu}`)
+    .join('\n\n')
 
-Règles pour "contenu" :
-- Regroupe les lignes de paroles par section logique (couplets, refrain, pont...), sans les lignes d'accords.
-- Si un refrain se répète à l'identique plusieurs fois dans le texte, ne le liste qu'une seule fois sous "Refrain".
-- Recopie chaque ligne de paroles EXACTEMENT comme dans le texte source, espace par espace. N'ajoute ni ne supprime aucun espace à l'intérieur d'une ligne.
-- Conserve les sauts de ligne (un \\n entre chaque ligne de parole).
+  const prompt = `Voici les paragraphes de paroles d'un chant chrétien, extraits d'un PDF et déjà découpés (numérotés à partir de 0).
+Ta seule tâche : donner un nom à chaque paragraphe (Couplet 1, Couplet 2, Refrain, Pont, Intro, Outro...) selon son contenu et sa position, ET détecter si plusieurs paragraphes ont un contenu identique ou quasi identique (répétition d'un refrain) — dans ce cas, réutilise le MÊME numéro de paragraphe avec le même nom à chaque fois qu'il apparaît dans l'ordre du chant.
 
-Règles pour "accords" (alignement précis, style OpenSong/OnSong) :
-- Si le bloc ne contient aucune ligne d'accords détectable dans le texte source, mets "accords": "" (chaîne vide).
-- Sinon, produis EXACTEMENT une ligne d'accords par ligne de paroles correspondante (même nombre de \\n que "contenu" ; ligne vide "" si aucune ligne d'accords n'existe au-dessus de cette ligne de paroles précise).
-- Chaque ligne d'accords doit être une COPIE EXACTE (même espacement) de la ligne correspondante trouvée dans le texte source, juste au-dessus de la ligne de paroles. Ne recalcule jamais la position, ne recentre jamais, ne modifie aucun espace.
-- N'invente jamais d'accords qui ne sont pas présents dans le texte source.
+Réponds UNIQUEMENT avec un JSON de la forme :
+{"blocs": [{"nom": "Couplet 1", "paragraphe": 0}, {"nom": "Refrain", "paragraphe": 1}, {"nom": "Couplet 2", "paragraphe": 2}, {"nom": "Refrain", "paragraphe": 1}]}
 
-Exemple (texte source avec accords sur leur propre ligne au-dessus des paroles) :
-"""
-G          D          Em
-Amazing grace how sweet the sound
-"""
-Doit donner : "contenu": "Amazing grace how sweet the sound", "accords": "G          D          Em"
-(la ligne d'accords est recopiée à l'identique du texte source, aucun caractère modifié).
+Règles :
+- "paragraphe" doit être un des numéros fournis ci-dessous (0, 1, 2...), jamais un texte.
+- Ignore les paragraphes qui ressemblent à du bruit (numéro de page, mentions légales, CCLI, copyright...) — ne crée pas de bloc pour ça.
+- Ne renvoie jamais de texte de paroles ou d'accords, uniquement des noms et des numéros.
 
-N'ajoute aucun texte en dehors du JSON.
-
-Texte brut :
-"""
-${texte}
-"""`
+Paragraphes :
+${apercuParagraphes}`
 
   try {
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -98,11 +139,29 @@ ${texte}
 
     if (!Array.isArray(parsed.blocs) || parsed.blocs.length === 0) {
       console.error('[api/structurer-paroles] Aucun bloc dans la réponse :', content)
-      res.status(502).json({ error: "Aucun bloc détecté par l'IA" })
+      res.status(200).json({
+        blocs: blocsBruts.map((b, idx) => ({ nom: `Couplet ${idx + 1}`, ...b })),
+      })
       return
     }
 
-    res.status(200).json({ blocs: parsed.blocs })
+    // Reconstruit les blocs finaux à partir du texte ORIGINAL déterministe (jamais généré par l'IA)
+    const blocsFinal = parsed.blocs
+      .filter(b => Number.isInteger(b.paragraphe) && blocsBruts[b.paragraphe])
+      .map(b => ({
+        nom: b.nom || 'Bloc',
+        contenu: blocsBruts[b.paragraphe].contenu,
+        accords: blocsBruts[b.paragraphe].accords,
+      }))
+
+    if (blocsFinal.length === 0) {
+      res.status(200).json({
+        blocs: blocsBruts.map((b, idx) => ({ nom: `Couplet ${idx + 1}`, ...b })),
+      })
+      return
+    }
+
+    res.status(200).json({ blocs: blocsFinal })
   } catch (err) {
     console.error('[api/structurer-paroles] Exception :', err)
     res.status(500).json({ error: 'Erreur serveur : ' + err.message })
